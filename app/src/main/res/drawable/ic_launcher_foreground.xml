@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Deep purple circle -->
+    <path
+        android:fillColor="#4A0072"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+    <!-- Leaf/quill body (matrix green) -->
+    <path
+        android:fillColor="#00FF41"
+        android:pathData="M40,70 C32,58 46,34 60,32 C68,31 76,38 74,48 C70,62 54,76 40,70Z"/>
+    <!-- Leaf stem -->
+    <path
+        android:fillColor="#00FF41"
+        android:pathData="M62,33 L70,25 L72,27 L64,35Z"/>
+    <!-- Midrib vein (deep purple cutout) -->
+    <path
+        android:fillColor="#4A0072"
+        android:pathData="M43,67 L69,38 L71,40 L45,69Z"/>
+    <!-- Secondary veins -->
+    <path
+        android:fillColor="#4A0072"
+        android:pathData="M50,62 L62,48 L63,49.5 L51,63.5Z"/>
+    <path
+        android:fillColor="#4A0072"
+        android:pathData="M54,55 L64,43 L65,44.5 L55,56.5Z"/>
+    <!-- Writing stroke below tip -->
+    <path
+        android:fillColor="#00FF41"
+        android:pathData="M30,76 Q36,72 42,76 L41,78 Q35,74 29,78Z"/>
+</vector>
