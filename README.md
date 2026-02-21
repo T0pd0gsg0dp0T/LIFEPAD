@@ -2,6 +2,8 @@
 
 LIFEPAD is an Android app built with Kotlin and Jetpack Compose. It includes modules for journaling, notepad, finance tracking, dashboards, and search.
 
+The purpose of this project is to provide a spyware-free version of some of my favorite apps.
+
 ## Getting Started
 
 ### Build
