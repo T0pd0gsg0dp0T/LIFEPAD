@@ -32,6 +32,8 @@ import com.lifepad.app.data.local.migration.MIGRATION_2_TO_3
 import com.lifepad.app.data.local.migration.MIGRATION_3_TO_4
 import com.lifepad.app.data.local.migration.MIGRATION_4_TO_5
 import com.lifepad.app.data.local.migration.MIGRATION_5_TO_6
+import com.lifepad.app.data.local.migration.MIGRATION_6_TO_7
+import com.lifepad.app.data.local.migration.MIGRATION_7_TO_8
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -95,10 +97,12 @@ object DatabaseModule {
                         Triple("WiFi", "wifi", true),
                         Triple("AI", "smart_toy", true)
                     )
-                    categories.forEach { (name, icon, isDefault) ->
+                    val defaultType = "EXPENSE"
+                    val defaultColor = -1907998
+                    categories.forEachIndexed { index, (name, icon, isDefault) ->
                         db.execSQL(
-                            "INSERT INTO categories (name, icon, isDefault, createdAt) VALUES (?, ?, ?, ?)",
-                            arrayOf<Any>(name, icon, if (isDefault) 1 else 0, now)
+                            "INSERT INTO categories (name, icon, type, color, sortOrder, isArchived, isDefault, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            arrayOf<Any>(name, icon, defaultType, defaultColor, index, 0, if (isDefault) 1 else 0, now)
                         )
                     }
 
@@ -109,7 +113,15 @@ object DatabaseModule {
                     )
                 }
             })
-            .addMigrations(MIGRATION_1_TO_2, MIGRATION_2_TO_3, MIGRATION_3_TO_4, MIGRATION_4_TO_5, MIGRATION_5_TO_6)
+            .addMigrations(
+                MIGRATION_1_TO_2,
+                MIGRATION_2_TO_3,
+                MIGRATION_3_TO_4,
+                MIGRATION_4_TO_5,
+                MIGRATION_5_TO_6,
+                MIGRATION_6_TO_7,
+                MIGRATION_7_TO_8
+            )
             .build()
 
         // Verify DB can actually be opened. If SQLCipher key/data is stale, recreate DB.
@@ -151,10 +163,12 @@ object DatabaseModule {
                             Triple("WiFi", "wifi", true),
                             Triple("AI", "smart_toy", true)
                         )
-                        categories.forEach { (name, icon, isDefaultCategory) ->
+                        val defaultType = "EXPENSE"
+                        val defaultColor = -1907998
+                        categories.forEachIndexed { index, (name, icon, isDefaultCategory) ->
                             db.execSQL(
-                                "INSERT INTO categories (name, icon, isDefault, createdAt) VALUES (?, ?, ?, ?)",
-                                arrayOf<Any>(name, icon, if (isDefaultCategory) 1 else 0, now)
+                                "INSERT INTO categories (name, icon, type, color, sortOrder, isArchived, isDefault, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                arrayOf<Any>(name, icon, defaultType, defaultColor, index, 0, if (isDefaultCategory) 1 else 0, now)
                             )
                         }
                         db.execSQL(
@@ -163,7 +177,15 @@ object DatabaseModule {
                         )
                     }
                 })
-                .addMigrations(MIGRATION_1_TO_2, MIGRATION_2_TO_3, MIGRATION_3_TO_4, MIGRATION_4_TO_5, MIGRATION_5_TO_6)
+                .addMigrations(
+                    MIGRATION_1_TO_2,
+                    MIGRATION_2_TO_3,
+                    MIGRATION_3_TO_4,
+                    MIGRATION_4_TO_5,
+                    MIGRATION_5_TO_6,
+                    MIGRATION_6_TO_7,
+                    MIGRATION_7_TO_8
+                )
                 .build()
         }
     }

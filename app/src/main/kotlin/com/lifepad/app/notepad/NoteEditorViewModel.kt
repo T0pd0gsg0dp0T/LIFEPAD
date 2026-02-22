@@ -3,15 +3,21 @@ package com.lifepad.app.notepad
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
+import com.lifepad.app.data.local.entity.AttachmentEntity
 import com.lifepad.app.data.local.entity.HashtagEntity
 import com.lifepad.app.data.local.entity.JournalEntryEntity
 import com.lifepad.app.data.local.entity.NoteEntity
 import com.lifepad.app.data.repository.HashtagRepository
 import com.lifepad.app.data.local.entity.ReminderEntity
+import com.lifepad.app.data.repository.AttachmentRepository
+import com.lifepad.app.data.repository.FinanceRepository
 import com.lifepad.app.data.repository.JournalRepository
 import com.lifepad.app.data.repository.NoteRepository
 import com.lifepad.app.data.repository.ReminderRepository
 import com.lifepad.app.domain.parser.ChecklistParser
+import com.lifepad.app.settings.SettingsRepository
+import com.lifepad.app.util.FileStorageManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -19,20 +25,25 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
 import javax.inject.Inject
 
 data class NoteEditorUiState(
     val noteId: Long? = null,
     val title: String = "",
     val content: String = "",
+    val folderId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
     val isPinned: Boolean = false,
     val isChecklist: Boolean = false,
     val checklistItems: List<ChecklistParser.ChecklistItem> = emptyList(),
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
-    val isPreviewMode: Boolean = false,
+    val doubleTapToEditEnabled: Boolean = false,
+    val isEditing: Boolean = true,
     val backlinks: List<NoteEntity> = emptyList(),
     val outgoingLinks: List<NoteEntity> = emptyList(),
     val journalMentions: List<JournalEntryEntity> = emptyList(),
@@ -45,6 +56,7 @@ data class NoteEditorUiState(
     val showWikilinkSuggestions: Boolean = false,
     val showReminderDialog: Boolean = false,
     val reminders: List<ReminderEntity> = emptyList(),
+    val attachments: List<AttachmentEntity> = emptyList(),
     val errorMessage: String? = null
 )
 
@@ -53,20 +65,37 @@ class NoteEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val noteRepository: NoteRepository,
     private val journalRepository: JournalRepository,
+    private val financeRepository: FinanceRepository,
     private val hashtagRepository: HashtagRepository,
-    private val reminderRepository: ReminderRepository
+    private val reminderRepository: ReminderRepository,
+    private val attachmentRepository: AttachmentRepository,
+    private val settingsRepository: SettingsRepository,
+    private val fileStorageManager: FileStorageManager
 ) : ViewModel() {
 
     private val noteId: Long? = savedStateHandle.get<Long>("noteId")?.takeIf { it != 0L }
+    private val initialIsChecklist: Boolean = savedStateHandle.get<Boolean>("checklist") ?: false
+    private val initialFolderId: Long? = savedStateHandle.get<Long>("folderId")?.takeIf { it != 0L }
 
-    private val _uiState = MutableStateFlow(NoteEditorUiState(noteId = noteId))
+    private val _uiState = MutableStateFlow(NoteEditorUiState(noteId = noteId, folderId = initialFolderId))
     val uiState: StateFlow<NoteEditorUiState> = _uiState.asStateFlow()
 
     private var autoSaveJob: Job? = null
     private var journalMentionsJob: Job? = null
+    private var hasUnsavedChanges: Boolean = false
 
     init {
         loadNote()
+        viewModelScope.launch {
+            settingsRepository.notesDoubleTapToEdit.collect { enabled ->
+                _uiState.update {
+                    it.copy(
+                        doubleTapToEditEnabled = enabled,
+                        isEditing = if (enabled) false else true
+                    )
+                }
+            }
+        }
     }
 
     private fun loadNote() {
@@ -82,7 +111,9 @@ class NoteEditorViewModel @Inject constructor(
                             it.copy(
                                 title = note.title,
                                 content = note.content,
+                                folderId = note.folderId,
                                 createdAt = note.createdAt,
+                                updatedAt = note.updatedAt,
                                 isPinned = note.isPinned,
                                 isChecklist = note.isChecklist,
                                 checklistItems = items,
@@ -94,7 +125,14 @@ class NoteEditorViewModel @Inject constructor(
                         _uiState.update { it.copy(isLoading = false) }
                     }
                 } else {
-                    _uiState.update { it.copy(isLoading = false) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isChecklist = initialIsChecklist,
+                            folderId = initialFolderId,
+                            isEditing = !it.doubleTapToEditEnabled
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.update {
@@ -128,6 +166,11 @@ class NoteEditorViewModel @Inject constructor(
                     _uiState.update { it.copy(reminders = reminders) }
                 }
             }
+            viewModelScope.launch {
+                attachmentRepository.getAttachments(noteId, ITEM_TYPE_NOTE).collect { attachments ->
+                    _uiState.update { it.copy(attachments = attachments) }
+                }
+            }
         }
     }
 
@@ -141,12 +184,14 @@ class NoteEditorViewModel @Inject constructor(
 
     fun onDateChange(dateMillis: Long) {
         _uiState.update { it.copy(createdAt = dateMillis) }
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
     fun onTitleChange(title: String) {
         _uiState.update { it.copy(title = title) }
         observeJournalMentions(title)
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
@@ -162,6 +207,7 @@ class NoteEditorViewModel @Inject constructor(
     fun onContentChange(content: String) {
         _uiState.update { it.copy(content = content) }
         checkForSuggestions(content)
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
@@ -215,6 +261,7 @@ class NoteEditorViewModel @Inject constructor(
                 showHashtagSuggestions = false
             )
         }
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
@@ -230,6 +277,7 @@ class NoteEditorViewModel @Inject constructor(
                 showWikilinkSuggestions = false
             )
         }
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
@@ -242,13 +290,80 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    fun openWikilink(targetTitle: String, onResolved: (Long) -> Unit) {
+    fun openWikilink(
+        target: String,
+        onNoteResolved: (Long) -> Unit,
+        onJournalResolved: (Long) -> Unit,
+        onTransactionResolved: (Long) -> Unit
+    ) {
         viewModelScope.launch {
-            val note = noteRepository.getNoteByTitleIgnoreCase(targetTitle)
-            if (note != null) {
-                onResolved(note.id)
+            val prefix = target.substringBefore(":", "")
+            val value = target.substringAfter(":", target).trim()
+            when (prefix.lowercase()) {
+                "journal", "entry" -> {
+                    resolveJournalLink(value, onJournalResolved)
+                }
+                "finance", "transaction" -> {
+                    resolveTransactionLink(value, onTransactionResolved)
+                }
+                else -> {
+                    val note = noteRepository.getNoteByTitleIgnoreCase(target)
+                    if (note != null) {
+                        onNoteResolved(note.id)
+                    } else {
+                        _uiState.update { it.copy(errorMessage = "Linked note not found: $target") }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun resolveJournalLink(value: String, onResolved: (Long) -> Unit) {
+        val id = value.toLongOrNull()
+        if (id != null) {
+            val entry = journalRepository.getEntryById(id)
+            if (entry != null) {
+                onResolved(entry.id)
             } else {
-                _uiState.update { it.copy(errorMessage = "Linked note not found: $targetTitle") }
+                _uiState.update { it.copy(errorMessage = "Journal entry not found: $value") }
+            }
+            return
+        }
+        val results = journalRepository.searchEntries(value)
+        if (results.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "No journal entries match: $value") }
+        } else {
+            val entry = results.maxByOrNull { it.updatedAt } ?: results.first()
+            onResolved(entry.id)
+            if (results.size > 1) {
+                _uiState.update {
+                    it.copy(errorMessage = "Multiple journal entries matched \"$value\". Opened most recent.")
+                }
+            }
+        }
+    }
+
+    private suspend fun resolveTransactionLink(value: String, onResolved: (Long) -> Unit) {
+        val id = value.toLongOrNull()
+        if (id != null) {
+            val transaction = financeRepository.getTransactionById(id)
+            if (transaction != null) {
+                onResolved(transaction.id)
+            } else {
+                _uiState.update { it.copy(errorMessage = "Transaction not found: $value") }
+            }
+            return
+        }
+        val results = financeRepository.searchTransactions(value)
+        if (results.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "No transactions match: $value") }
+        } else {
+            val transaction = results.maxByOrNull { it.updatedAt } ?: results.first()
+            onResolved(transaction.id)
+            if (results.size > 1) {
+                _uiState.update {
+                    it.copy(errorMessage = "Multiple transactions matched \"$value\". Opened most recent.")
+                }
             }
         }
     }
@@ -297,6 +412,7 @@ class NoteEditorViewModel @Inject constructor(
                 )
             }
         }
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
@@ -304,6 +420,7 @@ class NoteEditorViewModel @Inject constructor(
         val newContent = ChecklistParser.toggleItem(_uiState.value.content, lineIndex)
         val items = ChecklistParser.parseChecklist(newContent)
         _uiState.update { it.copy(content = newContent, checklistItems = items) }
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
@@ -313,6 +430,7 @@ class NoteEditorViewModel @Inject constructor(
         items[index] = items[index].copy(text = text)
         val newContent = ChecklistParser.toChecklistContent(items)
         _uiState.update { it.copy(content = newContent, checklistItems = items) }
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
@@ -320,6 +438,7 @@ class NoteEditorViewModel @Inject constructor(
         val newContent = ChecklistParser.addItem(_uiState.value.content, text)
         val items = ChecklistParser.parseChecklist(newContent)
         _uiState.update { it.copy(content = newContent, checklistItems = items) }
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
@@ -327,16 +446,77 @@ class NoteEditorViewModel @Inject constructor(
         val newContent = ChecklistParser.removeItem(_uiState.value.content, lineIndex)
         val items = ChecklistParser.parseChecklist(newContent)
         _uiState.update { it.copy(content = newContent, checklistItems = items) }
+        hasUnsavedChanges = true
         scheduleAutoSave()
     }
 
-    fun togglePreviewMode() {
-        _uiState.update { it.copy(isPreviewMode = !it.isPreviewMode) }
+    fun setEditing(isEditing: Boolean) {
+        val state = _uiState.value
+        if (!state.doubleTapToEditEnabled && !isEditing) return
+        _uiState.update { it.copy(isEditing = isEditing) }
     }
 
     fun togglePin() {
         _uiState.update { it.copy(isPinned = !it.isPinned) }
+        hasUnsavedChanges = true
         scheduleAutoSave()
+    }
+
+    fun toggleDoubleTapToEdit() {
+        val newValue = !_uiState.value.doubleTapToEditEnabled
+        settingsRepository.setNotesDoubleTapToEdit(newValue)
+        _uiState.update {
+            it.copy(
+                doubleTapToEditEnabled = newValue,
+                isEditing = !newValue
+            )
+        }
+    }
+
+    fun addAttachment(uri: Uri) {
+        viewModelScope.launch {
+            val currentNoteId = ensureNoteId() ?: return@launch
+            val filePath = fileStorageManager.saveFile(uri)
+            if (filePath != null) {
+                attachmentRepository.addAttachment(currentNoteId, ITEM_TYPE_NOTE, filePath)
+                val state = _uiState.value
+                if (!state.isChecklist) {
+                    val current = state.content
+                    if (!current.contains(filePath)) {
+                        val updated = buildString {
+                            append(current)
+                            if (current.isNotBlank() && !current.endsWith("\n")) append("\n")
+                            append("![](")
+                            append(filePath)
+                            append(")\n")
+                        }
+                        _uiState.update { it.copy(content = updated) }
+                        hasUnsavedChanges = true
+                        scheduleAutoSave()
+                    }
+                } else {
+                    hasUnsavedChanges = true
+                    scheduleAutoSave()
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Failed to save attachment.") }
+            }
+        }
+    }
+
+    fun removeAttachment(attachment: AttachmentEntity) {
+        viewModelScope.launch {
+            fileStorageManager.deleteFile(attachment.filePath)
+            attachmentRepository.deleteAttachment(attachment)
+            val state = _uiState.value
+            if (!state.isChecklist && state.content.contains(attachment.filePath)) {
+                val pattern = Regex("""\n?!\[[^\]]*]\(${Regex.escape(attachment.filePath)}\)\n?""")
+                val updated = state.content.replace(pattern, "\n").trimEnd()
+                _uiState.update { it.copy(content = updated) }
+                hasUnsavedChanges = true
+                scheduleAutoSave()
+            }
+        }
     }
 
     private fun scheduleAutoSave() {
@@ -352,22 +532,40 @@ class NoteEditorViewModel @Inject constructor(
 
         return try {
             val state = _uiState.value
+            if (!hasUnsavedChanges) {
+                _uiState.update { it.copy(isSaving = false) }
+                return state.noteId
+            }
+            if (state.noteId == null &&
+                state.title.isBlank() &&
+                state.content.isBlank() &&
+                state.checklistItems.isEmpty() &&
+                state.attachments.isEmpty()
+            ) {
+                _uiState.update { it.copy(isSaving = false) }
+                return null
+            }
+            val now = System.currentTimeMillis()
             val note = NoteEntity(
                 id = state.noteId ?: 0L,
                 title = state.title.ifBlank { "Untitled" },
                 content = state.content,
+                folderId = state.folderId,
                 isPinned = state.isPinned,
                 isChecklist = state.isChecklist,
-                createdAt = state.createdAt
+                createdAt = state.createdAt,
+                updatedAt = now
             )
 
             val savedId = noteRepository.saveNote(note)
             _uiState.update {
                 it.copy(
                     noteId = savedId,
+                    updatedAt = now,
                     isSaving = false
                 )
             }
+            hasUnsavedChanges = false
             savedId
         } catch (e: Exception) {
             _uiState.update {
@@ -380,10 +578,28 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
+    suspend fun saveNow(): Long? {
+        autoSaveJob?.cancel()
+        return saveNote()
+    }
+
+    private suspend fun ensureNoteId(): Long? {
+        val currentId = _uiState.value.noteId
+        if (currentId != null) return currentId
+        return saveNote()
+    }
+
     fun deleteNote() {
         viewModelScope.launch {
             try {
-                noteId?.let { noteRepository.deleteNote(it) }
+                noteId?.let { id ->
+                    val attachments = attachmentRepository.getAttachments(id, ITEM_TYPE_NOTE).first()
+                    attachments.forEach { attachment ->
+                        fileStorageManager.deleteFile(attachment.filePath)
+                        attachmentRepository.deleteAttachment(attachment)
+                    }
+                    noteRepository.deleteNote(id)
+                }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(errorMessage = "Failed to delete note: ${e.message}")
@@ -402,9 +618,17 @@ class NoteEditorViewModel @Inject constructor(
         // NonCancellable lets the save finish even after viewModelScope is cancelled.
         if (autoSaveJob?.isActive == true) {
             autoSaveJob?.cancel()
-            viewModelScope.launch(kotlinx.coroutines.NonCancellable) {
+            viewModelScope.launch(NonCancellable) {
+                saveNote()
+            }
+        } else if (hasUnsavedChanges) {
+            viewModelScope.launch(NonCancellable) {
                 saveNote()
             }
         }
+    }
+
+    companion object {
+        private const val ITEM_TYPE_NOTE = "note"
     }
 }

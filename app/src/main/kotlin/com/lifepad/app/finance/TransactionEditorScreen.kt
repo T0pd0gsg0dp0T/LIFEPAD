@@ -1,5 +1,6 @@
 package com.lifepad.app.finance
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -60,6 +62,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.HashtagChip
 import com.lifepad.app.components.MoodIndicator
 import com.lifepad.app.data.local.entity.TransactionType
+import com.lifepad.app.data.local.entity.CategoryType
+import com.lifepad.app.components.CategoryIcon
+import com.lifepad.app.components.categoryIconForName
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -80,6 +85,8 @@ fun TransactionEditorScreen(
     var showDatePicker by remember { mutableStateOf(false) }
 
     val selectedCategory = categories.find { it.id == uiState.categoryId }
+    val expectedType = if (uiState.type == TransactionType.INCOME) CategoryType.INCOME else CategoryType.EXPENSE
+    val filteredCategories = categories.filter { it.type == expectedType && !it.isArchived }
 
     Scaffold(
         topBar = {
@@ -358,7 +365,7 @@ fun TransactionEditorScreen(
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
 
-                    categories.forEach { category ->
+                    filteredCategories.forEach { category ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -371,11 +378,32 @@ fun TransactionEditorScreen(
                                     MaterialTheme.colorScheme.surfaceVariant
                             )
                         ) {
-                            Text(
-                                text = category.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.padding(16.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(
+                                            color = androidx.compose.ui.graphics.Color(category.color),
+                                            shape = MaterialTheme.shapes.small
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CategoryIcon(
+                                        icon = categoryIconForName(category.icon),
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = category.name,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         }
                     }
 

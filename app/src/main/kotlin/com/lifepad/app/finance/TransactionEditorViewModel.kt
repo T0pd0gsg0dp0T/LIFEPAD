@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lifepad.app.data.local.entity.CategoryEntity
+import com.lifepad.app.data.local.entity.CategoryType
 import com.lifepad.app.data.local.entity.HashtagEntity
 import com.lifepad.app.data.local.entity.JournalEntryEntity
 import com.lifepad.app.data.local.entity.TransactionEntity
@@ -54,7 +55,7 @@ class TransactionEditorViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TransactionEditorUiState(transactionId = transactionId))
     val uiState: StateFlow<TransactionEditorUiState> = _uiState.asStateFlow()
 
-    val categories: StateFlow<List<CategoryEntity>> = financeRepository.getAllCategories()
+    val categories: StateFlow<List<CategoryEntity>> = financeRepository.getActiveCategories()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -125,7 +126,19 @@ class TransactionEditorViewModel @Inject constructor(
     }
 
     fun onTypeChange(type: TransactionType) {
-        _uiState.update { it.copy(type = type) }
+        val currentCategory = _uiState.value.categoryId
+        val expectedCategoryType = if (type == TransactionType.INCOME) {
+            CategoryType.INCOME
+        } else {
+            CategoryType.EXPENSE
+        }
+        val validCategory = categories.value.firstOrNull { it.id == currentCategory && it.type == expectedCategoryType }
+        _uiState.update {
+            it.copy(
+                type = type,
+                categoryId = validCategory?.id
+            )
+        }
     }
 
     fun onDateChange(dateMillis: Long) {

@@ -72,6 +72,10 @@ class NoteRepository @Inject constructor(
         noteDao.update(note.copy(isPinned = !note.isPinned, updatedAt = System.currentTimeMillis()))
     }
 
+    suspend fun moveNote(noteId: Long, folderId: Long?) {
+        noteDao.updateFolder(noteId, folderId, System.currentTimeMillis())
+    }
+
     suspend fun getNoteCount(): Int = noteDao.getNoteCount()
 
     fun getHashtagsForNote(noteId: Long) = hashtagDao.observeHashtagsForItem(ItemType.NOTE, noteId)

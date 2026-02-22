@@ -2,15 +2,21 @@ package com.lifepad.app.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lifepad.app.data.local.entity.JournalEntryEntity
-import com.lifepad.app.data.local.entity.NoteEntity
-import com.lifepad.app.data.local.entity.TransactionEntity
 import com.lifepad.app.data.repository.FinanceRepository
 import com.lifepad.app.data.repository.GoalRepository
 import com.lifepad.app.data.repository.JournalRepository
 import com.lifepad.app.data.repository.NoteRepository
+import com.lifepad.app.data.repository.NetWorthRepository
 import com.lifepad.app.data.repository.RecurringBillRepository
+import com.lifepad.app.domain.finance.CashflowForecaster
 import com.lifepad.app.domain.finance.SafeToSpendCalculator
+import com.lifepad.app.components.MoodDataPoint
+import com.lifepad.app.components.IncomeExpenseEntry
+import com.lifepad.app.data.local.entity.NetWorthSnapshotEntity
+import com.lifepad.app.domain.finance.ForecastPoint
+import com.lifepad.app.settings.FinanceWidget
+import com.lifepad.app.settings.MoodWidget
+import com.lifepad.app.settings.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,14 +29,18 @@ import java.util.Calendar
 import javax.inject.Inject
 
 data class DashboardUiState(
-    val recentNotes: List<NoteEntity> = emptyList(),
-    val recentEntries: List<JournalEntryEntity> = emptyList(),
-    val recentTransactions: List<TransactionEntity> = emptyList(),
-    val todayMood: Int? = null,
+    val financeWidget: FinanceWidget = FinanceWidget.INCOME_EXPENSE,
+    val moodWidget: MoodWidget = MoodWidget.MOOD_LINE_2W,
+    val incomeExpenseData: List<IncomeExpenseEntry> = emptyList(),
+    val cashflowPoints: List<ForecastPoint> = emptyList(),
+    val netWorthSnapshots: List<NetWorthSnapshotEntity> = emptyList(),
+    val moodLinePoints: List<MoodDataPoint> = emptyList(),
+    val moodCalendarMap: Map<Long, Double> = emptyMap(),
+    val moodDistribution: Map<Int, Int> = emptyMap(),
+    val recentNoteId: Long? = null,
+    val recentNoteTitle: String? = null,
     val netBalance: Double = 0.0,
     val safeToSpendDaily: Double = 0.0,
-    val noteCount: Int = 0,
-    val entryCount: Int = 0,
     val isLoading: Boolean = true
 )
 
@@ -40,7 +50,9 @@ class DashboardViewModel @Inject constructor(
     private val journalRepository: JournalRepository,
     private val financeRepository: FinanceRepository,
     private val recurringBillRepository: RecurringBillRepository,
-    private val goalRepository: GoalRepository
+    private val goalRepository: GoalRepository,
+    private val netWorthRepository: NetWorthRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val _safeToSpend = MutableStateFlow(0.0)
@@ -63,32 +75,55 @@ class DashboardViewModel @Inject constructor(
     }
 
     val uiState: StateFlow<DashboardUiState> = combine(
-        noteRepository.getAllNotes(),
-        journalRepository.getAllEntries(),
-        financeRepository.getAllTransactions(),
-        financeRepository.getNetBalance()
-    ) { notes, entries, transactions, balance ->
-        // Get today's entries
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val todayStart = calendar.timeInMillis
-        calendar.add(Calendar.DAY_OF_YEAR, 1)
-        val todayEnd = calendar.timeInMillis
+        listOf(
+            noteRepository.getAllNotes(),
+            journalRepository.getAllEntries(),
+            financeRepository.getAllTransactions(),
+            financeRepository.getNetBalance(),
+            recurringBillRepository.getConfirmedBills(),
+            netWorthRepository.getAllSnapshots(),
+            settingsRepository.financeWidget,
+            settingsRepository.moodWidget
+        )
+    ) { values ->
+        @Suppress("UNCHECKED_CAST")
+        val notes = values[0] as List<com.lifepad.app.data.local.entity.NoteEntity>
+        @Suppress("UNCHECKED_CAST")
+        val entries = values[1] as List<com.lifepad.app.data.local.entity.JournalEntryEntity>
+        @Suppress("UNCHECKED_CAST")
+        val transactions = values[2] as List<com.lifepad.app.data.local.entity.TransactionEntity>
+        val balance = values[3] as Double
+        @Suppress("UNCHECKED_CAST")
+        val bills = values[4] as List<com.lifepad.app.data.local.entity.RecurringBillEntity>
+        @Suppress("UNCHECKED_CAST")
+        val netWorthSnapshots = values[5] as List<NetWorthSnapshotEntity>
+        val financeWidget = values[6] as FinanceWidget
+        val moodWidget = values[7] as MoodWidget
 
-        val todayEntry = entries.find { it.entryDate in todayStart until todayEnd }
+        val recentNote = notes.firstOrNull()
+        val moodLinePoints = buildMoodLine(entries, 14)
+        val moodCalendarMap = buildMoodCalendar(entries, 30)
+        val moodDistribution = buildMoodDistribution(entries, 30)
+        val incomeExpenseData = buildIncomeExpenseData(transactions, 6)
+        val cashflowPoints = CashflowForecaster.forecast(
+            currentBalance = balance,
+            confirmedBills = bills,
+            forecastDays = 14
+        )
 
         DashboardUiState(
-            recentNotes = notes.take(3),
-            recentEntries = entries.take(3),
-            recentTransactions = transactions.take(3),
-            todayMood = todayEntry?.mood,
+            financeWidget = financeWidget,
+            moodWidget = moodWidget,
+            incomeExpenseData = incomeExpenseData,
+            cashflowPoints = cashflowPoints,
+            netWorthSnapshots = netWorthSnapshots,
+            moodLinePoints = moodLinePoints,
+            moodCalendarMap = moodCalendarMap,
+            moodDistribution = moodDistribution,
+            recentNoteId = recentNote?.id,
+            recentNoteTitle = recentNote?.title?.ifBlank { "Untitled" },
             netBalance = balance,
             safeToSpendDaily = _safeToSpend.value,
-            noteCount = notes.size,
-            entryCount = entries.size,
             isLoading = false
         )
     }.stateIn(
@@ -96,4 +131,107 @@ class DashboardViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = DashboardUiState()
     )
+
+    private fun buildMoodLine(entries: List<com.lifepad.app.data.local.entity.JournalEntryEntity>, days: Int): List<MoodDataPoint> {
+        if (entries.isEmpty()) return emptyList()
+        val dayMillis = 24 * 60 * 60 * 1000L
+        val endCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startMillis = endCal.timeInMillis - (days - 1) * dayMillis
+
+        val entriesByDay = entries.groupBy { dayStart(it.entryDate) }
+        return (0 until days).mapNotNull { index ->
+            val dayStart = startMillis + index * dayMillis
+            val dayEntries = entriesByDay[dayStart].orEmpty()
+            val mood = dayEntries.maxByOrNull { it.entryDate }?.mood
+            if (mood != null) {
+                val label = formatShortDay(dayStart)
+                MoodDataPoint(index.toFloat(), mood.toFloat(), label)
+            } else null
+        }
+    }
+
+    private fun buildMoodCalendar(entries: List<com.lifepad.app.data.local.entity.JournalEntryEntity>, days: Int): Map<Long, Double> {
+        val dayMillis = 24 * 60 * 60 * 1000L
+        val endCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startMillis = endCal.timeInMillis - (days - 1) * dayMillis
+        return entries
+            .filter { it.entryDate in startMillis..endCal.timeInMillis + dayMillis }
+            .groupBy { dayStart(it.entryDate) }
+            .mapValues { (_, dayEntries) ->
+                dayEntries.maxByOrNull { it.entryDate }?.mood?.toDouble() ?: 0.0
+            }
+    }
+
+    private fun buildMoodDistribution(entries: List<com.lifepad.app.data.local.entity.JournalEntryEntity>, days: Int): Map<Int, Int> {
+        val dayMillis = 24 * 60 * 60 * 1000L
+        val endCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        val startMillis = endCal.timeInMillis - (days - 1) * dayMillis
+        return entries
+            .filter { it.entryDate in startMillis..endCal.timeInMillis }
+            .groupingBy { it.mood }
+            .eachCount()
+    }
+
+    private fun buildIncomeExpenseData(
+        transactions: List<com.lifepad.app.data.local.entity.TransactionEntity>,
+        months: Int
+    ): List<IncomeExpenseEntry> {
+        if (transactions.isEmpty()) return emptyList()
+        val labels = mutableListOf<IncomeExpenseEntry>()
+        val base = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        for (i in (months - 1) downTo 0) {
+            val cal = (base.clone() as Calendar).apply { add(Calendar.MONTH, -i) }
+            val start = cal.timeInMillis
+            cal.add(Calendar.MONTH, 1)
+            val end = cal.timeInMillis - 1
+            cal.add(Calendar.MONTH, -1)
+            val label = cal.getDisplayName(Calendar.MONTH, Calendar.SHORT, java.util.Locale.getDefault()) ?: ""
+            val rangeTx = transactions.filter { it.transactionDate in start..end }
+            val income = rangeTx.filter { it.type == com.lifepad.app.data.local.entity.TransactionType.INCOME }
+                .sumOf { it.amount }.toFloat()
+            val expense = rangeTx.filter { it.type == com.lifepad.app.data.local.entity.TransactionType.EXPENSE }
+                .sumOf { it.amount }.toFloat()
+            labels.add(IncomeExpenseEntry(label, income, expense))
+        }
+        return labels
+    }
+
+    private fun dayStart(timeMs: Long): Long {
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = timeMs
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return cal.timeInMillis
+    }
+
+    private fun formatShortDay(timeMs: Long): String {
+        val cal = Calendar.getInstance().apply { timeInMillis = timeMs }
+        val day = cal.get(Calendar.DAY_OF_MONTH)
+        return day.toString()
+    }
 }

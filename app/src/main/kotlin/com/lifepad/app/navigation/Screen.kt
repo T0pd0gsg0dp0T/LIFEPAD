@@ -5,16 +5,32 @@ import android.net.Uri
 sealed class Screen(val route: String) {
     data object Dashboard : Screen("dashboard")
     data object Notepad : Screen("notepad")
-    data object NoteEditor : Screen("notepad/edit?noteId={noteId}") {
-        fun createRoute(noteId: Long? = null) = "notepad/edit?noteId=${noteId ?: 0}"
+    data object NoteEditor : Screen("notepad/edit?noteId={noteId}&checklist={checklist}&folderId={folderId}") {
+        fun createRoute(noteId: Long? = null, checklist: Boolean = false, folderId: Long? = null) =
+            "notepad/edit?noteId=${noteId ?: 0}&checklist=$checklist&folderId=${folderId ?: 0}"
+    }
+    data object NoteDetail : Screen("notepad/detail?noteId={noteId}") {
+        fun createRoute(noteId: Long) = "notepad/detail?noteId=$noteId"
     }
     data object Journal : Screen("journal")
-    data object JournalEditor : Screen("journal/edit?entryId={entryId}") {
-        fun createRoute(entryId: Long? = null) = "journal/edit?entryId=${entryId ?: 0}"
+    data object JournalEditor : Screen("journal/edit?entryId={entryId}&template={template}") {
+        fun createRoute(entryId: Long? = null, template: String? = null): String {
+            val safeTemplate = Uri.encode(template ?: "free")
+            return "journal/edit?entryId=${entryId ?: 0}&template=$safeTemplate"
+        }
+    }
+    data object JournalDetail : Screen("journal/detail?entryId={entryId}") {
+        fun createRoute(entryId: Long) = "journal/detail?entryId=$entryId"
     }
     data object Finance : Screen("finance")
     data object TransactionEditor : Screen("finance/edit?transactionId={transactionId}") {
         fun createRoute(transactionId: Long? = null) = "finance/edit?transactionId=${transactionId ?: 0}"
+    }
+    data object TransactionDetail : Screen("finance/detail?transactionId={transactionId}") {
+        fun createRoute(transactionId: Long) = "finance/detail?transactionId=$transactionId"
+    }
+    data object CategoryEditor : Screen("finance/categories/edit?categoryId={categoryId}") {
+        fun createRoute(categoryId: Long? = null) = "finance/categories/edit?categoryId=${categoryId ?: 0}"
     }
     data object Graph : Screen("graph")
     data object FinanceStats : Screen("finance/stats")
@@ -29,6 +45,21 @@ sealed class Screen(val route: String) {
     }
     data object ExposureJournal : Screen("journal/exposure?entryId={entryId}") {
         fun createRoute(entryId: Long? = null) = "journal/exposure?entryId=${entryId ?: 0}"
+    }
+    data object GratitudeJournal : Screen("journal/gratitude?entryId={entryId}") {
+        fun createRoute(entryId: Long? = null) = "journal/gratitude?entryId=${entryId ?: 0}"
+    }
+    data object ReflectionJournal : Screen("journal/reflection?entryId={entryId}") {
+        fun createRoute(entryId: Long? = null) = "journal/reflection?entryId=${entryId ?: 0}"
+    }
+    data object SavoringJournal : Screen("journal/savoring?entryId={entryId}") {
+        fun createRoute(entryId: Long? = null) = "journal/savoring?entryId=${entryId ?: 0}"
+    }
+    data object CheckInJournal : Screen("journal/checkin?entryId={entryId}") {
+        fun createRoute(entryId: Long? = null) = "journal/checkin?entryId=${entryId ?: 0}"
+    }
+    data object FoodJournal : Screen("journal/food?entryId={entryId}") {
+        fun createRoute(entryId: Long? = null) = "journal/food?entryId=${entryId ?: 0}"
     }
     data object ThoughtJournalDetail : Screen("journal/thought/detail/{entryId}") {
         fun createRoute(entryId: Long) = "journal/thought/detail/$entryId"
@@ -52,6 +83,7 @@ sealed class Screen(val route: String) {
     data object SafeToSpend : Screen("finance/safetospend")
     data object FinanceInsights : Screen("finance/insights")
     data object BudgetTemplate : Screen("finance/budget/template")
+    data object Settings : Screen("settings")
     data object Search : Screen("search?query={query}") {
         fun createRoute(query: String? = null): String {
             val encoded = Uri.encode(query ?: "")

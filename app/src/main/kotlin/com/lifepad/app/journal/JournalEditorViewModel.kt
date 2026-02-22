@@ -64,6 +64,7 @@ class JournalEditorViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val entryId: Long? = savedStateHandle.get<Long>("entryId")?.takeIf { it != 0L }
+    private val initialTemplate: String = savedStateHandle.get<String>("template") ?: "free"
 
     private val _uiState = MutableStateFlow(JournalEditorUiState(entryId = entryId))
     val uiState: StateFlow<JournalEditorUiState> = _uiState.asStateFlow()
@@ -71,6 +72,14 @@ class JournalEditorViewModel @Inject constructor(
     private var autoSaveJob: Job? = null
 
     init {
+        if (entryId == null) {
+            _uiState.update {
+                it.copy(
+                    template = initialTemplate,
+                    content = if (initialTemplate != "free") getTemplatePrompt(initialTemplate) else it.content
+                )
+            }
+        }
         loadEntry()
     }
 

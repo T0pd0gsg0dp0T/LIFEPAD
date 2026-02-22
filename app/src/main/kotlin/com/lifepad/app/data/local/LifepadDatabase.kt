@@ -71,7 +71,7 @@ import com.lifepad.app.data.local.entity.AttachmentEntity
         NetWorthSnapshotEntity::class,
         AttachmentEntity::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

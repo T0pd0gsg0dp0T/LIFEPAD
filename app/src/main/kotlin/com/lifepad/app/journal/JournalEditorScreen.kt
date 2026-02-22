@@ -16,10 +16,8 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Preview
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
-import com.lifepad.app.components.EmotionSelector
 import com.lifepad.app.components.HashtagChip
 import com.lifepad.app.components.InteractiveMarkdownText
 import com.lifepad.app.components.MoodSelector
@@ -48,7 +45,6 @@ fun JournalEditorScreen(
     viewModel: JournalEditorViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val bottomSheetState = rememberModalBottomSheetState()
     var showDatePicker by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -133,12 +129,6 @@ fun JournalEditorScreen(
                             )
                         }
                     }
-                    IconButton(onClick = viewModel::togglePin) {
-                        Icon(
-                            imageVector = if (uiState.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = if (uiState.isPinned) "Unpin" else "Pin"
-                        )
-                    }
                     if (uiState.entryId != null) {
                         IconButton(onClick = {
                             viewModel.deleteEntry()
@@ -177,31 +167,6 @@ fun JournalEditorScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    // Template indicator
-                    Text(
-                        text = "Template: ${uiState.template.replaceFirstChar { it.uppercase() }}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .clickable { viewModel.toggleTemplateSelector() }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Savoring: emotions before
-                    if (uiState.template == "savoring") {
-                        EmotionSelector(
-                            emotions = uiState.emotionsBefore,
-                            onEmotionsChange = viewModel::onEmotionsBeforeChange,
-                            label = "How do you feel before?",
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
 
                     if (uiState.isPreviewMode) {
                         Column(
@@ -245,19 +210,6 @@ fun JournalEditorScreen(
                                 unfocusedIndicatorColor = Color.Transparent
                             )
                         )
-                    }
-
-                    // Savoring: emotions after
-                    if (uiState.template == "savoring") {
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(8.dp))
-                        EmotionSelector(
-                            emotions = uiState.emotionsAfter,
-                            onEmotionsChange = viewModel::onEmotionsAfterChange,
-                            label = "How do you feel after?",
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
                     // Attachments
@@ -398,84 +350,6 @@ fun JournalEditorScreen(
             }
         }
 
-        // Template selector bottom sheet
-        if (uiState.showTemplateSelector) {
-            ModalBottomSheet(
-                onDismissRequest = viewModel::toggleTemplateSelector,
-                sheetState = bottomSheetState
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Select Template",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-
-                    TemplateOption(
-                        title = "Free Writing",
-                        description = "Write freely without prompts",
-                        isSelected = uiState.template == "free",
-                        onClick = { viewModel.onTemplateSelected("free") }
-                    )
-
-                    TemplateOption(
-                        title = "Thought Record",
-                        description = "CBT-style structured reflection",
-                        isSelected = uiState.template == "thought_record",
-                        onClick = { viewModel.onTemplateSelected("thought_record") }
-                    )
-
-                    TemplateOption(
-                        title = "Gratitude",
-                        description = "Focus on things you're thankful for",
-                        isSelected = uiState.template == "gratitude",
-                        onClick = { viewModel.onTemplateSelected("gratitude") }
-                    )
-
-                    TemplateOption(
-                        title = "Daily Reflection",
-                        description = "Morning and evening prompts",
-                        isSelected = uiState.template == "reflection",
-                        onClick = { viewModel.onTemplateSelected("reflection") }
-                    )
-
-                    TemplateOption(
-                        title = "Savoring",
-                        description = "Capture and extend positive experiences",
-                        isSelected = uiState.template == "savoring",
-                        onClick = { viewModel.onTemplateSelected("savoring") }
-                    )
-
-                    TemplateOption(
-                        title = "Exposure",
-                        description = "Track anxiety hierarchy and SUDS ratings",
-                        isSelected = uiState.template == "exposure",
-                        onClick = { viewModel.onTemplateSelected("exposure") }
-                    )
-
-                    TemplateOption(
-                        title = "Check-in",
-                        description = "Quick mood and situation snapshot",
-                        isSelected = uiState.template == "check_in",
-                        onClick = { viewModel.onTemplateSelected("check_in") }
-                    )
-
-                    TemplateOption(
-                        title = "Food Journal",
-                        description = "Track meals, hunger, and mood",
-                        isSelected = uiState.template == "food",
-                        onClick = { viewModel.onTemplateSelected("food") }
-                    )
-
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
-            }
-        }
-
         // Reminder dialog
         if (uiState.showReminderDialog) {
             ReminderDialog(
@@ -503,39 +377,6 @@ private fun SuggestionAssistChip(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelMedium
         )
-    }
-}
-
-@Composable
-private fun TemplateOption(
-    title: String,
-    description: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 

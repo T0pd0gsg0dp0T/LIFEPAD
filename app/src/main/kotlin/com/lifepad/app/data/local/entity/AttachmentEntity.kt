@@ -13,7 +13,7 @@ data class AttachmentEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val itemId: Long,
-    val itemType: String, // "journal_entry" or "transaction"
+    val itemType: String, // "journal_entry", "transaction", or "note"
     val filePath: String,
     val createdAt: Long = System.currentTimeMillis()
 )

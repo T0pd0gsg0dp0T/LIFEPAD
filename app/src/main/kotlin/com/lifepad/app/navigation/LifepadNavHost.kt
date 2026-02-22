@@ -21,21 +21,31 @@ import com.lifepad.app.finance.NetWorthScreen
 import com.lifepad.app.finance.RecurringBillEditorScreen
 import com.lifepad.app.finance.RecurringBillsScreen
 import com.lifepad.app.finance.SafeToSpendScreen
+import com.lifepad.app.finance.TransactionDetailScreen
+import com.lifepad.app.finance.CategoryEditorScreen
 import com.lifepad.app.finance.TransactionEditorScreen
 import com.lifepad.app.journal.AssessmentHistoryScreen
 import com.lifepad.app.journal.AssessmentScreen
+import com.lifepad.app.journal.JournalDetailScreen
 import com.lifepad.app.journal.JournalEditorScreen
 import com.lifepad.app.journal.JournalListScreen
 import com.lifepad.app.journal.ExportScreen
 import com.lifepad.app.journal.ExposureJournalDetailScreen
 import com.lifepad.app.journal.ExposureJournalScreen
+import com.lifepad.app.journal.GratitudeJournalScreen
+import com.lifepad.app.journal.ReflectionJournalScreen
+import com.lifepad.app.journal.SavoringJournalScreen
+import com.lifepad.app.journal.CheckInJournalScreen
+import com.lifepad.app.journal.FoodJournalScreen
 import com.lifepad.app.journal.MoodStatsScreen
 import com.lifepad.app.journal.ThoughtJournalDetailScreen
 import com.lifepad.app.journal.ThoughtJournalScreen
 import com.lifepad.app.notepad.GraphScreen
+import com.lifepad.app.notepad.NoteDetailScreen
 import com.lifepad.app.notepad.NoteEditorScreen
 import com.lifepad.app.notepad.NoteListScreen
 import com.lifepad.app.search.SearchScreen
+import com.lifepad.app.settings.SettingsScreen
 
 @Composable
 fun LifepadNavHost(
@@ -50,21 +60,30 @@ fun LifepadNavHost(
         // Dashboard
         composable(Screen.Dashboard.route) {
             DashboardScreen(
-                onNoteClick = { navController.navigate(Screen.NoteEditor.createRoute(it)) },
-                onEntryClick = { navController.navigate(Screen.JournalEditor.createRoute(it)) },
-                onTransactionClick = { navController.navigate(Screen.TransactionEditor.createRoute(it)) },
+                onNoteClick = { navController.navigate(Screen.NoteDetail.createRoute(it)) },
                 onNavigateToNotes = { navController.navigate(Screen.Notepad.route) },
                 onNavigateToJournal = { navController.navigate(Screen.Journal.route) },
-                onNavigateToFinance = { navController.navigate(Screen.Finance.route) }
+                onNavigateToFinance = { navController.navigate(Screen.Finance.route) },
+                onNavigateToSearch = { navController.navigate(Screen.Search.createRoute()) },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                onCreateNote = { navController.navigate(Screen.NoteEditor.createRoute()) },
+                onCreateEntry = { template ->
+                    navController.navigate(Screen.JournalEditor.createRoute(template = template))
+                },
+                onCreateTransaction = { navController.navigate(Screen.TransactionEditor.createRoute()) }
             )
         }
 
         // Notepad
         composable(Screen.Notepad.route) {
             NoteListScreen(
-                onNoteClick = { navController.navigate(Screen.NoteEditor.createRoute(it)) },
-                onCreateNote = { navController.navigate(Screen.NoteEditor.createRoute()) },
-                onNavigateToGraph = { navController.navigate(Screen.Graph.route) }
+                onNavigateBack = { navController.popBackStack() },
+                onNoteClick = { navController.navigate(Screen.NoteDetail.createRoute(it)) },
+                onEditNote = { navController.navigate(Screen.NoteEditor.createRoute(it)) },
+                onCreateNote = { isChecklist, folderId ->
+                    navController.navigate(Screen.NoteEditor.createRoute(checklist = isChecklist, folderId = folderId))
+                },
+                onNavigateToSearch = { navController.navigate(Screen.Search.createRoute()) }
             )
         }
 
@@ -76,13 +95,13 @@ fun LifepadNavHost(
                         NodeType.NOTE -> {
                             val noteId = id.substringAfter("note_").toLongOrNull()
                             if (noteId != null) {
-                                navController.navigate(Screen.NoteEditor.createRoute(noteId))
+                                navController.navigate(Screen.NoteDetail.createRoute(noteId))
                             }
                         }
                         NodeType.JOURNAL_ENTRY -> {
                             val entryId = id.substringAfter("entry_").toLongOrNull()
                             if (entryId != null) {
-                                navController.navigate(Screen.JournalEditor.createRoute(entryId))
+                                navController.navigate(Screen.JournalDetail.createRoute(entryId))
                             }
                         }
                         NodeType.TRANSACTION -> {}
@@ -98,13 +117,43 @@ fun LifepadNavHost(
                 navArgument("noteId") {
                     type = NavType.LongType
                     defaultValue = 0L
+                },
+                navArgument("checklist") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
+                navArgument("folderId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
                 }
             )
         ) {
             NoteEditorScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNoteClick = { navController.navigate(Screen.NoteEditor.createRoute(it)) },
-                onJournalEntryClick = { navController.navigate(Screen.JournalEditor.createRoute(it)) },
+                onNoteClick = { navController.navigate(Screen.NoteDetail.createRoute(it)) },
+                onJournalEntryClick = { navController.navigate(Screen.JournalDetail.createRoute(it)) },
+                onTransactionClick = { navController.navigate(Screen.TransactionDetail.createRoute(it)) },
+                onHashtagClick = { hashtag ->
+                    navController.navigate(Screen.Search.createRoute("#$hashtag"))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.NoteDetail.route,
+            arguments = listOf(
+                navArgument("noteId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            NoteDetailScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onEdit = { navController.navigate(Screen.NoteEditor.createRoute(it)) },
+                onOpenLinkedNote = { navController.navigate(Screen.NoteDetail.createRoute(it)) },
+                onOpenLinkedJournal = { navController.navigate(Screen.JournalDetail.createRoute(it)) },
+                onOpenLinkedTransaction = { navController.navigate(Screen.TransactionDetail.createRoute(it)) },
                 onHashtagClick = { hashtag ->
                     navController.navigate(Screen.Search.createRoute("#$hashtag"))
                 }
@@ -114,16 +163,26 @@ fun LifepadNavHost(
         // Journal
         composable(Screen.Journal.route) {
             JournalListScreen(
-                onEntryClick = { navController.navigate(Screen.JournalEditor.createRoute(it)) },
-                onCreateEntry = { navController.navigate(Screen.JournalEditor.createRoute()) },
+                onEntryClick = { navController.navigate(Screen.JournalDetail.createRoute(it)) },
+                onEditEntry = { entryId, template ->
+                    navigateToJournalTemplate(navController, template, entryId)
+                },
+                onCreateEntry = { template ->
+                    navigateToJournalTemplate(navController, template, null)
+                },
+                onNavigateToSearch = { navController.navigate(Screen.Search.createRoute()) },
                 onNavigateToStats = { navController.navigate(Screen.MoodStats.route) },
-                onNavigateToThoughtJournal = { navController.navigate(Screen.ThoughtJournal.createRoute()) },
-                onNavigateToExposureJournal = { navController.navigate(Screen.ExposureJournal.createRoute()) },
+                onNavigateToThoughtJournal = { entryId ->
+                    navController.navigate(Screen.ThoughtJournal.createRoute(entryId))
+                },
+                onNavigateToExposureJournal = { entryId ->
+                    navController.navigate(Screen.ExposureJournal.createRoute(entryId))
+                },
                 onStructuredEntryClick = { id, template ->
                     when (template) {
                         "thought_record" -> navController.navigate(Screen.ThoughtJournalDetail.createRoute(id))
                         "exposure" -> navController.navigate(Screen.ExposureJournalDetail.createRoute(id))
-                        else -> navController.navigate(Screen.JournalEditor.createRoute(id))
+                        else -> navController.navigate(Screen.JournalDetail.createRoute(id))
                     }
                 }
             )
@@ -162,6 +221,10 @@ fun LifepadNavHost(
                 navArgument("entryId") {
                     type = NavType.LongType
                     defaultValue = 0L
+                },
+                navArgument("template") {
+                    type = NavType.StringType
+                    defaultValue = "free"
                 }
             )
         ) {
@@ -171,6 +234,21 @@ fun LifepadNavHost(
                 onHashtagClick = { hashtag ->
                     navController.navigate(Screen.Search.createRoute("#$hashtag"))
                 }
+            )
+        }
+
+        composable(
+            route = Screen.JournalDetail.route,
+            arguments = listOf(
+                navArgument("entryId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            JournalDetailScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onEdit = { navController.navigate(Screen.JournalEditor.createRoute(it)) }
             )
         }
 
@@ -234,10 +312,86 @@ fun LifepadNavHost(
             )
         }
 
+        // Gratitude Journal
+        composable(
+            route = Screen.GratitudeJournal.route,
+            arguments = listOf(
+                navArgument("entryId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            GratitudeJournalScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Reflection Journal
+        composable(
+            route = Screen.ReflectionJournal.route,
+            arguments = listOf(
+                navArgument("entryId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            ReflectionJournalScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Savoring Journal
+        composable(
+            route = Screen.SavoringJournal.route,
+            arguments = listOf(
+                navArgument("entryId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            SavoringJournalScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Check-in Journal
+        composable(
+            route = Screen.CheckInJournal.route,
+            arguments = listOf(
+                navArgument("entryId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            CheckInJournalScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Food Journal
+        composable(
+            route = Screen.FoodJournal.route,
+            arguments = listOf(
+                navArgument("entryId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            FoodJournalScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         // Finance
         composable(Screen.Finance.route) {
             FinanceScreen(
-                onTransactionClick = { navController.navigate(Screen.TransactionEditor.createRoute(it)) },
+                onTransactionClick = { navController.navigate(Screen.TransactionDetail.createRoute(it)) },
+                onEditTransaction = { navController.navigate(Screen.TransactionEditor.createRoute(it)) },
                 onCreateTransaction = { navController.navigate(Screen.TransactionEditor.createRoute()) },
                 onManageBudgets = { navController.navigate(Screen.BudgetEditor.createRoute()) },
                 onBudgetClick = { navController.navigate(Screen.BudgetEditor.createRoute(it)) },
@@ -247,7 +401,10 @@ fun LifepadNavHost(
                 onNavigateToNetWorth = { navController.navigate(Screen.NetWorth.route) },
                 onNavigateToSafeToSpend = { navController.navigate(Screen.SafeToSpend.route) },
                 onNavigateToInsights = { navController.navigate(Screen.FinanceInsights.route) },
-                onNavigateToBudgetTemplates = { navController.navigate(Screen.BudgetTemplate.route) }
+                onNavigateToBudgetTemplates = { navController.navigate(Screen.BudgetTemplate.route) },
+                onNavigateToSearch = { navController.navigate(Screen.Search.createRoute()) },
+                onCreateCategory = { navController.navigate(Screen.CategoryEditor.createRoute()) },
+                onEditCategory = { navController.navigate(Screen.CategoryEditor.createRoute(it)) }
             )
         }
 
@@ -261,6 +418,39 @@ fun LifepadNavHost(
             )
         ) {
             TransactionEditorScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.TransactionDetail.route,
+            arguments = listOf(
+                navArgument("transactionId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            TransactionDetailScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onEdit = { navController.navigate(Screen.TransactionEditor.createRoute(it)) },
+                onOpenLinkedNote = { navController.navigate(Screen.NoteDetail.createRoute(it)) },
+                onOpenLinkedJournal = { navController.navigate(Screen.JournalDetail.createRoute(it)) },
+                onOpenLinkedTransaction = { navController.navigate(Screen.TransactionDetail.createRoute(it)) },
+                onHashtagClick = { navController.navigate(Screen.Search.createRoute("#${it}")) }
+            )
+        }
+
+        composable(
+            route = Screen.CategoryEditor.route,
+            arguments = listOf(
+                navArgument("categoryId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
+        ) {
+            CategoryEditorScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -386,10 +576,35 @@ fun LifepadNavHost(
             )
         ) {
             SearchScreen(
-                onNoteClick = { navController.navigate(Screen.NoteEditor.createRoute(it)) },
-                onEntryClick = { navController.navigate(Screen.JournalEditor.createRoute(it)) },
-                onTransactionClick = { navController.navigate(Screen.TransactionEditor.createRoute(it)) }
+                onNoteClick = { navController.navigate(Screen.NoteDetail.createRoute(it)) },
+                onEntryClick = { navController.navigate(Screen.JournalDetail.createRoute(it)) },
+                onTransactionClick = { navController.navigate(Screen.TransactionDetail.createRoute(it)) }
+            )
+        }
+
+        // Settings
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
+}
+
+private fun navigateToJournalTemplate(
+    navController: NavHostController,
+    template: String,
+    entryId: Long?
+) {
+    val route = when (template) {
+        "thought_record" -> Screen.ThoughtJournal.createRoute(entryId)
+        "exposure" -> Screen.ExposureJournal.createRoute(entryId)
+        "gratitude" -> Screen.GratitudeJournal.createRoute(entryId)
+        "reflection" -> Screen.ReflectionJournal.createRoute(entryId)
+        "savoring" -> Screen.SavoringJournal.createRoute(entryId)
+        "check_in" -> Screen.CheckInJournal.createRoute(entryId)
+        "food" -> Screen.FoodJournal.createRoute(entryId)
+        else -> Screen.JournalEditor.createRoute(entryId, "free")
+    }
+    navController.navigate(route)
 }

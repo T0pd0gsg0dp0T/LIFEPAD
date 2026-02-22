@@ -72,6 +72,7 @@ fun LifepadTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = LifepadShapes,
         content = content
     )
 }

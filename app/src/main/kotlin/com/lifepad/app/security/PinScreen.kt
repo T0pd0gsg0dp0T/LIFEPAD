@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun PinSetupScreen(
     onPinSet: () -> Unit,
+    showSkip: Boolean = true,
+    showCancel: Boolean = false,
+    onCancel: () -> Unit = {},
     viewModel: PinViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -55,20 +59,28 @@ fun PinSetupScreen(
         },
         submitLabel = if (uiState.isConfirmStep) "Confirm" else "Next",
         isSubmitEnabled = if (uiState.isConfirmStep) uiState.confirmPin.length >= 4 else uiState.pin.length >= 4,
-        showSkip = !uiState.isConfirmStep,
+        showSkip = showSkip && !uiState.isConfirmStep,
         onSkip = {
             viewModel.onSkipSetup()
             onPinSet()
-        }
+        },
+        showCancel = showCancel,
+        onCancel = onCancel
     )
 }
 
 @Composable
 fun PinLockScreen(
     onUnlocked: () -> Unit,
+    showCancel: Boolean = false,
+    onCancel: () -> Unit = {},
     viewModel: PinViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.clearPin()
+    }
 
     PinContent(
         title = "LIFEPAD",
@@ -85,7 +97,9 @@ fun PinLockScreen(
         submitLabel = "Unlock",
         isSubmitEnabled = uiState.pin.length >= 4 && !uiState.isLocked,
         showSkip = false,
-        onSkip = {}
+        onSkip = {},
+        showCancel = showCancel,
+        onCancel = onCancel
     )
 }
 
@@ -101,7 +115,9 @@ private fun PinContent(
     submitLabel: String,
     isSubmitEnabled: Boolean,
     showSkip: Boolean,
-    onSkip: () -> Unit
+    onSkip: () -> Unit,
+    showCancel: Boolean,
+    onCancel: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -220,6 +236,15 @@ private fun PinContent(
                 .height(48.dp)
         ) {
             Text(submitLabel)
+        }
+
+        if (showCancel) {
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.testTag("pin_cancel")
+            ) {
+                Text("Cancel")
+            }
         }
 
         if (showSkip) {

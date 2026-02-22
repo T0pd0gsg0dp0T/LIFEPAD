@@ -34,7 +34,45 @@ data class ExposureJournalData(
 data class SavoringJournalData(
     val experience: String = "",
     val sensoryDetails: String = "",
-    val savoring: String = ""
+    val savoring: String = "",
+    val mood: Int = 5
+)
+
+@Serializable
+data class GratitudeJournalData(
+    val itemOne: String = "",
+    val itemTwo: String = "",
+    val itemThree: String = "",
+    val whyItMattered: String = "",
+    val whoHelped: String = "",
+    val mood: Int = 5
+)
+
+@Serializable
+data class ReflectionJournalData(
+    val intention: String = "",
+    val highlights: String = "",
+    val challenges: String = "",
+    val improveTomorrow: String = "",
+    val mood: Int = 5
+)
+
+@Serializable
+data class CheckInJournalData(
+    val mood: Int = 5,
+    val energy: Int = 50,
+    val stress: Int = 50,
+    val notes: String = ""
+)
+
+@Serializable
+data class FoodJournalData(
+    val meal: String = "",
+    val hungerBefore: Int = 50,
+    val hungerAfter: Int = 50,
+    val moodBefore: Int = 5,
+    val moodAfter: Int = 5,
+    val reflection: String = ""
 )
 
 object StructuredDataSerializer {
@@ -56,5 +94,29 @@ object StructuredDataSerializer {
     fun decodeSavoring(jsonStr: String): SavoringJournalData {
         if (jsonStr.isBlank()) return SavoringJournalData()
         return try { json.decodeFromString(jsonStr) } catch (_: Exception) { SavoringJournalData() }
+    }
+
+    fun encodeGratitude(data: GratitudeJournalData): String = json.encodeToString(data)
+    fun decodeGratitude(jsonStr: String): GratitudeJournalData {
+        if (jsonStr.isBlank()) return GratitudeJournalData()
+        return try { json.decodeFromString(jsonStr) } catch (_: Exception) { GratitudeJournalData() }
+    }
+
+    fun encodeReflection(data: ReflectionJournalData): String = json.encodeToString(data)
+    fun decodeReflection(jsonStr: String): ReflectionJournalData {
+        if (jsonStr.isBlank()) return ReflectionJournalData()
+        return try { json.decodeFromString(jsonStr) } catch (_: Exception) { ReflectionJournalData() }
+    }
+
+    fun encodeCheckIn(data: CheckInJournalData): String = json.encodeToString(data)
+    fun decodeCheckIn(jsonStr: String): CheckInJournalData {
+        if (jsonStr.isBlank()) return CheckInJournalData()
+        return try { json.decodeFromString(jsonStr) } catch (_: Exception) { CheckInJournalData() }
+    }
+
+    fun encodeFood(data: FoodJournalData): String = json.encodeToString(data)
+    fun decodeFood(jsonStr: String): FoodJournalData {
+        if (jsonStr.isBlank()) return FoodJournalData()
+        return try { json.decodeFromString(jsonStr) } catch (_: Exception) { FoodJournalData() }
     }
 }

@@ -1,6 +1,7 @@
 package com.lifepad.app.data.local
 
 import androidx.room.TypeConverter
+import com.lifepad.app.data.local.entity.CategoryType
 import com.lifepad.app.data.local.entity.ItemType
 import com.lifepad.app.data.local.entity.TransactionType
 
@@ -16,4 +17,10 @@ class Converters {
 
     @TypeConverter
     fun toTransactionType(value: String): TransactionType = TransactionType.valueOf(value)
+
+    @TypeConverter
+    fun fromCategoryType(value: CategoryType): String = value.name
+
+    @TypeConverter
+    fun toCategoryType(value: String): CategoryType = CategoryType.valueOf(value)
 }

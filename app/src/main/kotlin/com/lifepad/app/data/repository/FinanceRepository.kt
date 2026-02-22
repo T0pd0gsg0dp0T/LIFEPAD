@@ -11,6 +11,7 @@ import com.lifepad.app.data.local.dao.TransactionDao
 import com.lifepad.app.data.local.entity.AccountEntity
 import com.lifepad.app.data.local.entity.BudgetEntity
 import com.lifepad.app.data.local.entity.CategoryEntity
+import com.lifepad.app.data.local.entity.CategoryType
 import com.lifepad.app.data.local.entity.ItemType
 import com.lifepad.app.data.local.entity.TransactionEntity
 import com.lifepad.app.data.local.entity.TransactionType
@@ -84,11 +85,28 @@ class FinanceRepository @Inject constructor(
     // Categories
     fun getAllCategories(): Flow<List<CategoryEntity>> = categoryDao.getAllCategories()
 
+    suspend fun getAllCategoriesSnapshot(): List<CategoryEntity> = categoryDao.getAllCategoriesOnce()
+
+    fun getActiveCategories(): Flow<List<CategoryEntity>> = categoryDao.getActiveCategories()
+
+    fun getCategoriesByType(type: CategoryType): Flow<List<CategoryEntity>> =
+        categoryDao.getCategoriesByType(type)
+
+    fun getArchivedCategories(): Flow<List<CategoryEntity>> = categoryDao.getArchivedCategories()
+
     fun getDefaultCategories(): Flow<List<CategoryEntity>> = categoryDao.getDefaultCategories()
 
     suspend fun getCategoryById(categoryId: Long): CategoryEntity? = categoryDao.getCategoryById(categoryId)
 
     suspend fun saveCategory(category: CategoryEntity): Long = categoryDao.insert(category)
+
+    suspend fun updateCategory(category: CategoryEntity) = categoryDao.update(category)
+
+    suspend fun updateCategories(categories: List<CategoryEntity>) = categoryDao.updateAll(categories)
+
+    suspend fun archiveCategory(categoryId: Long) = categoryDao.archive(categoryId)
+
+    suspend fun unarchiveCategory(categoryId: Long) = categoryDao.unarchive(categoryId)
 
     suspend fun deleteCategory(categoryId: Long) = categoryDao.deleteById(categoryId)
 

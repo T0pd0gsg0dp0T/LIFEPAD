@@ -1,13 +1,17 @@
 package com.lifepad.app.notepad
 
+import android.content.Intent
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,26 +25,23 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Preview
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,226 +49,279 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.ChecklistItemRow
 import com.lifepad.app.components.HashtagChip
 import com.lifepad.app.components.InteractiveMarkdownText
-import com.lifepad.app.components.ReminderDialog
-import com.lifepad.app.data.local.entity.NoteEntity
 import com.lifepad.app.data.local.entity.JournalEntryEntity
+import com.lifepad.app.data.local.entity.NoteEntity
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
+import coil.compose.rememberAsyncImagePainter
+import androidx.compose.foundation.Image
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(
     onNavigateBack: () -> Unit,
     onNoteClick: (Long) -> Unit,
     onJournalEntryClick: (Long) -> Unit,
+    onTransactionClick: (Long) -> Unit = {},
     onHashtagClick: (String) -> Unit = {},
     viewModel: NoteEditorViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showDatePicker by remember { mutableStateOf(false) }
-    var newItemText by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
 
-    // Show error messages via Snackbar
+    var showActionRow by remember { mutableStateOf(true) }
+    var showSearchDialog by remember { mutableStateOf(false) }
+    var showCountDialog by remember { mutableStateOf(false) }
+    var showTimestampDialog by remember { mutableStateOf(false) }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var searchMatches by remember { mutableStateOf<List<IntRange>>(emptyList()) }
+    var currentMatchIndex by remember { mutableStateOf(0) }
+
+    var contentField by remember { mutableStateOf(TextFieldValue(uiState.content)) }
+    var titleField by remember { mutableStateOf(uiState.title) }
+    var newChecklistItem by remember { mutableStateOf("") }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
+            if (uri != null) {
+                viewModel.addAttachment(uri)
+            }
+        }
+    )
+
+    LaunchedEffect(uiState.content) {
+        if (uiState.content != contentField.text) {
+            contentField = contentField.copy(
+                text = uiState.content,
+                selection = TextRange(uiState.content.length)
+            )
+        }
+    }
+
+    LaunchedEffect(uiState.title) {
+        if (uiState.title != titleField) {
+            titleField = uiState.title
+        }
+    }
+
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { message ->
-            val result = snackbarHostState.showSnackbar(
-                message = message,
-                actionLabel = "Dismiss"
-            )
-            if (result == SnackbarResult.ActionPerformed || result == SnackbarResult.Dismissed) {
-                viewModel.clearError()
+            snackbarHostState.showSnackbar(message = message)
+            viewModel.clearError()
+        }
+    }
+
+    BackHandler {
+        scope.launch {
+            viewModel.saveNow()
+            onNavigateBack()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            scope.launch {
+                viewModel.saveNow()
             }
         }
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = {
-                    if (uiState.isSaving) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.height(16.dp).width(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Saving...", style = MaterialTheme.typography.bodySmall)
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .imePadding()
+                .testTag("screen_note_editor")
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(onClick = {
+                    scope.launch {
+                        viewModel.saveNow()
+                        onNavigateBack()
+                    }
+                }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+
+                BasicTextField(
+                    value = titleField,
+                    onValueChange = {
+                        titleField = it
+                        viewModel.onTitleChange(it)
+                    },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    readOnly = uiState.doubleTapToEditEnabled && !uiState.isEditing,
+                    textStyle = MaterialTheme.typography.titleLarge.merge(
+                        TextStyle(color = MaterialTheme.colorScheme.onSurface)
+                    ),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (titleField.isBlank()) {
+                                Text(
+                                    text = "Note Title",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            innerTextField()
                         }
                     }
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onNavigateBack,
-                        modifier = Modifier.testTag("nav_back")
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                )
+
+                if (uiState.doubleTapToEditEnabled && uiState.isEditing) {
+                    TextButton(onClick = { viewModel.setEditing(false) }) {
+                        Text("Done")
                     }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::togglePin) {
-                        Icon(
-                            imageVector = if (uiState.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = if (uiState.isPinned) "Unpin" else "Pin"
-                        )
+                }
+
+                IconButton(onClick = { showActionRow = !showActionRow }) {
+                    Icon(Icons.Default.Build, contentDescription = "Toggle actions")
+                }
+            }
+
+            if (uiState.isSaving) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Saving...", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            AnimatedVisibility(visible = showActionRow) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = {
+                        val text = buildString {
+                            if (uiState.title.isNotBlank()) {
+                                append(uiState.title)
+                                append("\n\n")
+                            }
+                            append(uiState.content)
+                        }
+                        clipboard.setText(AnnotatedString(text))
+                    }) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy")
                     }
-                    IconButton(onClick = viewModel::toggleChecklist) {
+                    IconButton(onClick = { showSearchDialog = true }) {
+                        Icon(Icons.Default.Search, contentDescription = "Search document")
+                    }
+                    IconButton(onClick = { showCountDialog = true }) {
+                        Icon(Icons.Default.TextFields, contentDescription = "Word count")
+                    }
+                    IconButton(onClick = { viewModel.toggleDoubleTapToEdit() }) {
                         Icon(
-                            imageVector = Icons.Default.Checklist,
-                            contentDescription = if (uiState.isChecklist) "Disable checklist" else "Enable checklist",
-                            tint = if (uiState.isChecklist)
+                            Icons.Default.TouchApp,
+                            contentDescription = "Double tap to edit",
+                            tint = if (uiState.doubleTapToEditEnabled)
                                 MaterialTheme.colorScheme.primary
                             else
                                 MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    if (uiState.noteId != null) {
-                        IconButton(
-                            onClick = viewModel::toggleReminderDialog,
-                            modifier = Modifier.testTag("note_reminder")
-                        ) {
-                            Icon(
-                                imageVector = if (uiState.reminders.isNotEmpty())
-                                    Icons.Default.NotificationsActive
-                                else
-                                    Icons.Outlined.Notifications,
-                                contentDescription = "Set reminder"
-                            )
-                        }
+                    IconButton(onClick = { showTimestampDialog = true }) {
+                        Icon(Icons.Default.AccessTime, contentDescription = "Timestamps")
                     }
-                    IconButton(onClick = viewModel::togglePreviewMode) {
-                        Icon(
-                            imageVector = if (uiState.isPreviewMode) Icons.Outlined.Edit else Icons.Default.Preview,
-                            contentDescription = if (uiState.isPreviewMode) "Edit" else "Preview"
+                    IconButton(onClick = {
+                        val shareText = buildString {
+                            if (uiState.title.isNotBlank()) {
+                                append(uiState.title)
+                                append("\n\n")
+                            }
+                            append(uiState.content)
+                        }
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "Share note"))
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Share")
+                    }
+                    IconButton(onClick = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
-                    }
-                    if (uiState.noteId != null) {
-                        IconButton(onClick = {
-                            viewModel.deleteNote()
-                            onNavigateBack()
-                        }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete")
-                        }
+                    }) {
+                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = "Add image")
                     }
                 }
-            )
-        }
-    ) { padding ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
             }
-        } else {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .imePadding()
-                        .testTag("screen_note_editor")
-                ) {
-                    OutlinedTextField(
-                        value = uiState.title,
-                        onValueChange = viewModel::onTitleChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .testTag("note_title_input"),
-                        placeholder = { Text("Title") },
-                        textStyle = MaterialTheme.typography.headlineSmall,
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        )
-                    )
 
-                    // Date selector
-                    val noteDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-                    Row(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .clickable { showDatePicker = true },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.CalendarMonth,
-                            contentDescription = "Change date",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = noteDateFormat.format(Date(uiState.createdAt)),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            HorizontalDivider()
 
-                    if (uiState.isPreviewMode) {
-                        // Preview mode - render markdown
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            if (uiState.content.isBlank()) {
-                                Text(
-                                    text = "No content",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            } else {
-                                InteractiveMarkdownText(
-                                    content = uiState.content,
-                                    onWikilinkClick = { target ->
-                                        viewModel.openWikilink(target, onNoteClick)
-                                    },
-                                    onHashtagClick = onHashtagClick
-                                )
-                            }
-                        }
-                    } else if (uiState.isChecklist) {
-                        // Checklist mode
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                if (uiState.isChecklist) {
+                    if (uiState.isEditing) {
                         LazyColumn(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
+                                .fillMaxSize()
                                 .padding(horizontal = 8.dp)
                         ) {
                             items(uiState.checklistItems.size) { index ->
@@ -281,7 +335,6 @@ fun NoteEditorScreen(
                                 )
                             }
                             item {
-                                // Add new item row
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -289,99 +342,107 @@ fun NoteEditorScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     IconButton(onClick = {
-                                        val text = newItemText.ifBlank { "" }
+                                        val text = newChecklistItem.trim()
                                         if (text.isNotBlank()) {
                                             viewModel.addChecklistItem(text)
-                                            newItemText = ""
+                                            newChecklistItem = ""
                                         }
                                     }) {
                                         Icon(Icons.Default.Add, contentDescription = "Add item")
                                     }
                                     OutlinedTextField(
-                                        value = newItemText,
-                                        onValueChange = { newItemText = it },
+                                        value = newChecklistItem,
+                                        onValueChange = { newChecklistItem = it },
                                         modifier = Modifier.weight(1f),
                                         placeholder = { Text("Add item...") },
                                         singleLine = true,
                                         colors = TextFieldDefaults.colors(
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent
+                                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
                                         )
                                     )
                                 }
                             }
                         }
-                    } else {
-                        // Edit mode
-                        OutlinedTextField(
-                            value = uiState.content,
-                            onValueChange = viewModel::onContentChange,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .testTag("note_content_input"),
-                            placeholder = { Text("Start writing... Use #hashtags and [[wikilinks]]") },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            )
-                        )
-                    }
-
-                    // Hashtags
-                    if (uiState.hashtags.isNotEmpty()) {
-                        HorizontalDivider()
-                        FlowRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            uiState.hashtags.forEach { hashtag ->
-                                HashtagChip(name = hashtag.name)
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onDoubleTap = { viewModel.setEditing(true) }
+                                )
+                            }
+                    ) {
+                            uiState.checklistItems.forEach { item ->
+                                Text(
+                                    text = if (item.isChecked) "✓ ${item.text}" else "• ${item.text}",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
                             }
                         }
                     }
-
-                    // Backlinks
-                    if (uiState.backlinks.isNotEmpty()) {
-                        HorizontalDivider()
-                        BacklinkSection(
-                            title = "Linked from",
-                            notes = uiState.backlinks,
-                            expanded = uiState.backlinksExpanded,
-                            onToggleExpanded = viewModel::toggleBacklinksExpanded,
-                            onNoteClick = onNoteClick
+                } else {
+                    if (uiState.isEditing) {
+                        OutlinedTextField(
+                            value = contentField,
+                            onValueChange = { newValue ->
+                                contentField = newValue
+                                if (newValue.text != uiState.content) {
+                                    viewModel.onContentChange(newValue.text)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                                .testTag("note_content_input"),
+                            placeholder = { Text("Start writing... Use #hashtags and [[wikilinks]]") },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                                unfocusedIndicatorColor = MaterialTheme.colorScheme.outlineVariant
+                            )
                         )
-                    }
-
-                    // Outgoing links
-                    if (uiState.outgoingLinks.isNotEmpty()) {
-                        HorizontalDivider()
-                        BacklinkSection(
-                            title = "Links to",
-                            notes = uiState.outgoingLinks,
-                            expanded = uiState.outgoingLinksExpanded,
-                            onToggleExpanded = viewModel::toggleOutgoingLinksExpanded,
-                            onNoteClick = onNoteClick
-                        )
-                    }
-
-                    if (uiState.journalMentions.isNotEmpty()) {
-                        HorizontalDivider()
-                        JournalMentionSection(
-                            entries = uiState.journalMentions,
-                            onEntryClick = onJournalEntryClick
-                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onDoubleTap = { viewModel.setEditing(true) }
+                                    )
+                                }
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            if (uiState.content.isBlank()) {
+                                Text(
+                                    text = "No content",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                            InteractiveMarkdownText(
+                                content = uiState.content,
+                                onWikilinkClick = { target ->
+                                    viewModel.openWikilink(
+                                        target = target,
+                                        onNoteResolved = onNoteClick,
+                                        onJournalResolved = onJournalEntryClick,
+                                        onTransactionResolved = onTransactionClick
+                                    )
+                                },
+                                onHashtagClick = onHashtagClick
+                            )
+                            }
+                        }
                     }
                 }
 
-                // Suggestion dropdowns
-                if (uiState.showHashtagSuggestions) {
+                if (uiState.isEditing && uiState.showHashtagSuggestions) {
                     SuggestionDropdown(
                         modifier = Modifier.align(Alignment.BottomStart)
                     ) {
@@ -395,34 +456,7 @@ fun NoteEditorScreen(
                             )
                         }
                     }
-                }
-
-                // Date picker dialog
-                if (showDatePicker) {
-                    val datePickerState = rememberDatePickerState(
-                        initialSelectedDateMillis = uiState.createdAt
-                    )
-                    DatePickerDialog(
-                        onDismissRequest = { showDatePicker = false },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                datePickerState.selectedDateMillis?.let { viewModel.onDateChange(it) }
-                                showDatePicker = false
-                            }) {
-                                Text("OK")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showDatePicker = false }) {
-                                Text("Cancel")
-                            }
-                        }
-                    ) {
-                        DatePicker(state = datePickerState)
-                    }
-                }
-
-                if (uiState.showWikilinkSuggestions) {
+                } else if (uiState.isEditing && uiState.showWikilinkSuggestions) {
                     SuggestionDropdown(
                         modifier = Modifier.align(Alignment.BottomStart)
                     ) {
@@ -438,18 +472,194 @@ fun NoteEditorScreen(
                     }
                 }
             }
-        }
 
-        // Reminder dialog
-        if (uiState.showReminderDialog) {
-            ReminderDialog(
-                onDismiss = viewModel::toggleReminderDialog,
-                onConfirm = { title, message, triggerTime, repeatInterval ->
-                    viewModel.saveReminder(title, message, triggerTime, repeatInterval)
+            if (uiState.attachments.isNotEmpty()) {
+                HorizontalDivider()
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.attachments) { attachment ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Image(
+                                painter = rememberAsyncImagePainter(File(attachment.filePath)),
+                                contentDescription = null,
+                                modifier = Modifier.size(72.dp)
+                            )
+                            Text(
+                                text = File(attachment.filePath).name,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = { viewModel.removeAttachment(attachment) }) {
+                                Text("Remove")
+                            }
+                        }
+                    }
                 }
-            )
+            }
+
+            if (uiState.hashtags.isNotEmpty()) {
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    uiState.hashtags.forEach { hashtag ->
+                        HashtagChip(
+                            name = hashtag.name,
+                            onClick = { onHashtagClick(hashtag.name) }
+                        )
+                    }
+                }
+            }
+
+            if (uiState.backlinks.isNotEmpty()) {
+                HorizontalDivider()
+                BacklinkSection(
+                    title = "Linked from",
+                    notes = uiState.backlinks,
+                    expanded = uiState.backlinksExpanded,
+                    onToggleExpanded = viewModel::toggleBacklinksExpanded,
+                    onNoteClick = onNoteClick
+                )
+            }
+
+            if (uiState.outgoingLinks.isNotEmpty()) {
+                HorizontalDivider()
+                BacklinkSection(
+                    title = "Links to",
+                    notes = uiState.outgoingLinks,
+                    expanded = uiState.outgoingLinksExpanded,
+                    onToggleExpanded = viewModel::toggleOutgoingLinksExpanded,
+                    onNoteClick = onNoteClick
+                )
+            }
+
+            if (uiState.journalMentions.isNotEmpty()) {
+                HorizontalDivider()
+                JournalMentionSection(
+                    entries = uiState.journalMentions,
+                    onEntryClick = onJournalEntryClick
+                )
+            }
         }
     }
+
+    if (showSearchDialog) {
+        AlertDialog(
+            onDismissRequest = { showSearchDialog = false },
+            title = { Text("Search in note") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                            searchMatches = findMatches(uiState.content, it)
+                            currentMatchIndex = 0
+                        },
+                        placeholder = { Text("Search text") },
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (searchQuery.isBlank()) "Enter text to search"
+                        else "${searchMatches.size} matches"
+                    )
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            if (searchMatches.isNotEmpty()) {
+                                currentMatchIndex =
+                                    (currentMatchIndex - 1 + searchMatches.size) % searchMatches.size
+                                val range = searchMatches[currentMatchIndex]
+                                viewModel.setEditing(true)
+                                contentField = contentField.copy(
+                                    selection = TextRange(range.first, range.last + 1)
+                                )
+                            }
+                        }
+                    ) { Text("Prev") }
+                    TextButton(
+                        onClick = {
+                            if (searchMatches.isNotEmpty()) {
+                                currentMatchIndex = (currentMatchIndex + 1) % searchMatches.size
+                                val range = searchMatches[currentMatchIndex]
+                                viewModel.setEditing(true)
+                                contentField = contentField.copy(
+                                    selection = TextRange(range.first, range.last + 1)
+                                )
+                            }
+                        }
+                    ) { Text("Next") }
+                    TextButton(onClick = { showSearchDialog = false }) { Text("Close") }
+                }
+            }
+        )
+    }
+
+    if (showCountDialog) {
+        val words = countWords(uiState.content)
+        val chars = uiState.content.length
+        val charsNoSpaces = uiState.content.count { !it.isWhitespace() }
+        val lines = uiState.content.lines().size
+        AlertDialog(
+            onDismissRequest = { showCountDialog = false },
+            title = { Text("Counts") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Words: $words")
+                    Text("Characters: $chars")
+                    Text("Characters (no spaces): $charsNoSpaces")
+                    Text("Lines: $lines")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCountDialog = false }) { Text("Close") }
+            }
+        )
+    }
+
+    if (showTimestampDialog) {
+        val formatter = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
+        AlertDialog(
+            onDismissRequest = { showTimestampDialog = false },
+            title = { Text("Timestamps") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Created: ${formatter.format(Date(uiState.createdAt))}")
+                    Text("Updated: ${formatter.format(Date(uiState.updatedAt))}")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTimestampDialog = false }) { Text("Close") }
+            }
+        )
+    }
+}
+
+private fun findMatches(content: String, query: String): List<IntRange> {
+    if (query.isBlank()) return emptyList()
+    val regex = Regex(Regex.escape(query), RegexOption.IGNORE_CASE)
+    return regex.findAll(content).map { it.range }.toList()
+}
+
+private fun countWords(content: String): Int {
+    return Regex("""\b\w+\b""").findAll(content).count()
 }
 
 @Composable
@@ -472,33 +682,15 @@ private fun BacklinkSection(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "${notes.size}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-            }
-            Icon(
-                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = if (expanded) "Collapse" else "Expand",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (expanded) "Hide" else "Show",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
             )
         }
         AnimatedVisibility(visible = expanded) {
