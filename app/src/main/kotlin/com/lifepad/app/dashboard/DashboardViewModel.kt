@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -44,11 +45,28 @@ data class DashboardUiState(
     val moodByTimeOfDay: List<TimeOfDayMoodEntry> = emptyList(),
     val emotionFrequency: List<EmotionFrequencyRow> = emptyList(),
     val trapFrequency: List<TrapFrequencyRow> = emptyList(),
+    val weekComparison: PeriodComparison? = null,
+    val monthComparison: PeriodComparison? = null,
     val recentNoteId: Long? = null,
     val recentNoteTitle: String? = null,
     val netBalance: Double = 0.0,
     val safeToSpendDaily: Double = 0.0,
     val isLoading: Boolean = true
+)
+
+data class PeriodSummary(
+    val averageMood: Double,
+    val entryCount: Int,
+    val trendData: List<MoodDataPoint>,
+    val distribution: Map<Int, Int>,
+    val timeOfDay: List<TimeOfDayMoodEntry>
+)
+
+data class PeriodComparison(
+    val labelCurrent: String,
+    val labelPrevious: String,
+    val current: PeriodSummary,
+    val previous: PeriodSummary
 )
 
 @HiltViewModel
@@ -103,43 +121,102 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    val uiState: StateFlow<DashboardUiState> = combine(
-        listOf(
-            noteRepository.getAllNotes(),
-            journalRepository.getAllEntries(),
-            financeRepository.getAllTransactions(),
-            financeRepository.getNetBalance(),
-            recurringBillRepository.getConfirmedBills(),
-            netWorthRepository.getAllSnapshots(),
-            settingsRepository.financeWidget,
-            settingsRepository.moodWidget,
-            settingsRepository.moodWidgetPeriod,
-            _emotionFrequency,
-            _trapFrequency
+    private data class DashboardInputs(
+        val notes: List<com.lifepad.app.data.local.entity.NoteEntity>,
+        val entries: List<com.lifepad.app.data.local.entity.JournalEntryEntity>,
+        val transactions: List<com.lifepad.app.data.local.entity.TransactionEntity>,
+        val balance: Double,
+        val bills: List<com.lifepad.app.data.local.entity.RecurringBillEntity>,
+        val netWorthSnapshots: List<NetWorthSnapshotEntity>,
+        val financeWidget: FinanceWidget,
+        val moodWidget: MoodWidget,
+        val moodWidgetPeriod: MoodWidgetPeriod,
+        val emotionFrequency: List<EmotionFrequencyRow>,
+        val trapFrequency: List<TrapFrequencyRow>
+    )
+
+    private val dashboardInputs: StateFlow<DashboardInputs> = combine(
+        noteRepository.getAllNotes(),
+        journalRepository.getAllEntries(),
+        financeRepository.getAllTransactions(),
+        financeRepository.getNetBalance(),
+        recurringBillRepository.getConfirmedBills()
+    ) { notes, entries, transactions, balance, bills ->
+        DashboardInputs(
+            notes = notes,
+            entries = entries,
+            transactions = transactions,
+            balance = balance,
+            bills = bills,
+            netWorthSnapshots = emptyList(),
+            financeWidget = FinanceWidget.INCOME_EXPENSE,
+            moodWidget = MoodWidget.MOOD_LINE,
+            moodWidgetPeriod = MoodWidgetPeriod.MONTH,
+            emotionFrequency = emptyList(),
+            trapFrequency = emptyList()
         )
-    ) { values ->
-        @Suppress("UNCHECKED_CAST")
-        val notes = values[0] as List<com.lifepad.app.data.local.entity.NoteEntity>
-        @Suppress("UNCHECKED_CAST")
-        val entries = values[1] as List<com.lifepad.app.data.local.entity.JournalEntryEntity>
-        @Suppress("UNCHECKED_CAST")
-        val transactions = values[2] as List<com.lifepad.app.data.local.entity.TransactionEntity>
-        val balance = values[3] as Double
-        @Suppress("UNCHECKED_CAST")
-        val bills = values[4] as List<com.lifepad.app.data.local.entity.RecurringBillEntity>
-        @Suppress("UNCHECKED_CAST")
-        val netWorthSnapshots = values[5] as List<NetWorthSnapshotEntity>
-        val financeWidget = values[6] as FinanceWidget
-        val moodWidget = values[7] as MoodWidget
-        val moodWidgetPeriod = values[8] as MoodWidgetPeriod
-        val emotionFrequency = values[9] as List<EmotionFrequencyRow>
-        val trapFrequency = values[10] as List<TrapFrequencyRow>
+    }.combine(
+        netWorthRepository.getAllSnapshots()
+    ) { inputs, netWorthSnapshots ->
+        inputs.copy(netWorthSnapshots = netWorthSnapshots)
+    }.combine(
+        settingsRepository.financeWidget
+    ) { inputs, financeWidget ->
+        inputs.copy(financeWidget = financeWidget)
+    }.combine(
+        settingsRepository.moodWidget
+    ) { inputs, moodWidget ->
+        inputs.copy(moodWidget = moodWidget)
+    }.combine(
+        settingsRepository.moodWidgetPeriod
+    ) { inputs, moodWidgetPeriod ->
+        inputs.copy(moodWidgetPeriod = moodWidgetPeriod)
+    }.combine(
+        _emotionFrequency
+    ) { inputs, emotionFrequency ->
+        inputs.copy(emotionFrequency = emotionFrequency)
+    }.combine(
+        _trapFrequency
+    ) { inputs, trapFrequency ->
+        inputs.copy(trapFrequency = trapFrequency)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = DashboardInputs(
+            notes = emptyList(),
+            entries = emptyList(),
+            transactions = emptyList(),
+            balance = 0.0,
+            bills = emptyList(),
+            netWorthSnapshots = emptyList(),
+            financeWidget = FinanceWidget.INCOME_EXPENSE,
+            moodWidget = MoodWidget.MOOD_LINE,
+            moodWidgetPeriod = MoodWidgetPeriod.MONTH,
+            emotionFrequency = emptyList(),
+            trapFrequency = emptyList()
+        )
+    )
+
+    val uiState: StateFlow<DashboardUiState> = dashboardInputs.map { inputs ->
+        val notes = inputs.notes
+        val entries = inputs.entries
+        val transactions = inputs.transactions
+        val balance = inputs.balance
+        val bills = inputs.bills
+        val netWorthSnapshots = inputs.netWorthSnapshots
+        val financeWidget = inputs.financeWidget
+        val moodWidget = inputs.moodWidget
+        val moodWidgetPeriod = inputs.moodWidgetPeriod
+        val emotionFrequency = inputs.emotionFrequency
+        val trapFrequency = inputs.trapFrequency
 
         val recentNote = notes.firstOrNull()
         val moodLinePoints = buildMoodLine(entries, moodWidgetPeriod.days)
         val moodCalendarMap = buildMoodCalendar(entries, moodWidgetPeriod.days)
         val moodDistribution = buildMoodDistribution(entries, moodWidgetPeriod.days)
         val moodByTimeOfDay = buildMoodByTimeOfDay(entries, moodWidgetPeriod.days)
+        val weekComparison = buildComparison(entries, 7, "This week", "Last week")
+        val monthComparison = buildComparison(entries, 30, "This month", "Last month")
         val incomeExpenseData = buildIncomeExpenseData(transactions, 6)
         val cashflowPoints = CashflowForecaster.forecast(
             currentBalance = balance,
@@ -160,6 +237,8 @@ class DashboardViewModel @Inject constructor(
             moodByTimeOfDay = moodByTimeOfDay,
             emotionFrequency = emotionFrequency,
             trapFrequency = trapFrequency,
+            weekComparison = weekComparison,
+            monthComparison = monthComparison,
             recentNoteId = recentNote?.id,
             recentNoteTitle = recentNote?.title?.ifBlank { "Untitled" },
             netBalance = balance,
@@ -266,6 +345,55 @@ class DashboardViewModel @Inject constructor(
             val avg = if (counts[index] == 0) 0f else sums[index].toFloat() / counts[index]
             TimeOfDayMoodEntry(label = label, averageMood = avg, count = counts[index])
         }
+    }
+
+    private fun buildComparison(
+        entries: List<com.lifepad.app.data.local.entity.JournalEntryEntity>,
+        days: Int,
+        labelCurrent: String,
+        labelPrevious: String
+    ): PeriodComparison? {
+        if (entries.isEmpty()) return null
+        val dayMillis = 24 * 60 * 60 * 1000L
+        val endCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        val currentEnd = endCal.timeInMillis
+        val currentStart = currentEnd - (days - 1) * dayMillis
+        val previousEnd = currentStart - 1
+        val previousStart = previousEnd - (days - 1) * dayMillis
+
+        val currentSummary = buildSummary(entries, currentStart, currentEnd, days)
+        val previousSummary = buildSummary(entries, previousStart, previousEnd, days)
+        return PeriodComparison(
+            labelCurrent = labelCurrent,
+            labelPrevious = labelPrevious,
+            current = currentSummary,
+            previous = previousSummary
+        )
+    }
+
+    private fun buildSummary(
+        entries: List<com.lifepad.app.data.local.entity.JournalEntryEntity>,
+        start: Long,
+        end: Long,
+        days: Int
+    ): PeriodSummary {
+        val rangeEntries = entries.filter { it.entryDate in start..end }
+        val avg = if (rangeEntries.isEmpty()) 0.0 else rangeEntries.map { it.mood }.average()
+        val trend = buildMoodLine(rangeEntries, days)
+        val dist = rangeEntries.groupingBy { it.mood }.eachCount()
+        val timeOfDay = buildMoodByTimeOfDay(rangeEntries, days)
+        return PeriodSummary(
+            averageMood = avg,
+            entryCount = rangeEntries.size,
+            trendData = trend,
+            distribution = dist,
+            timeOfDay = timeOfDay
+        )
     }
 
     private fun buildIncomeExpenseData(
