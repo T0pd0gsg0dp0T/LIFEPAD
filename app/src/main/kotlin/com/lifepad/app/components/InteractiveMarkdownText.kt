@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -25,9 +28,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import com.lifepad.app.domain.parser.WikilinkParser
 import java.io.File
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextLayoutResult
 
 private const val TAG_WIKILINK = "wikilink"
 private const val TAG_HASHTAG = "hashtag"
@@ -40,6 +48,7 @@ fun InteractiveMarkdownText(
     modifier: Modifier = Modifier
 ) {
     val blocks = remember(content) { parseMarkdownBlocks(content) }
+    val context = LocalContext.current
     Column(modifier = modifier) {
         blocks.forEach { block ->
             when (block) {
@@ -139,16 +148,21 @@ fun InteractiveMarkdownText(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 is MarkdownBlock.Image -> {
-                    val painter = when {
-                        block.path.startsWith("http") -> rememberAsyncImagePainter(block.path)
-                        else -> rememberAsyncImagePainter(File(block.path))
-                    }
+                    val data = if (block.path.startsWith("http")) block.path else File(block.path)
+                    val painter = rememberAsyncImagePainter(
+                        ImageRequest.Builder(context)
+                            .data(data)
+                            .size(1024)
+                            .crossfade(true)
+                            .build()
+                    )
                     Image(
                         painter = painter,
                         contentDescription = block.alt,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = 8.dp),
+                        contentScale = ContentScale.FillWidth
                     )
                 }
                 is MarkdownBlock.HorizontalRule -> {
@@ -201,21 +215,27 @@ private fun MarkdownTextBlock(
         Modifier
     }
 
-    ClickableText(
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    Text(
         text = annotated,
-        modifier = modifier,
+        modifier = modifier.pointerInput(annotated) {
+            detectTapGestures { position ->
+                val layout = layoutResult ?: return@detectTapGestures
+                val offset = layout.getOffsetForPosition(position)
+                annotated.getStringAnnotations(TAG_WIKILINK, offset, offset)
+                    .firstOrNull()?.let {
+                        onWikilinkClick(it.item)
+                        return@detectTapGestures
+                    }
+                annotated.getStringAnnotations(TAG_HASHTAG, offset, offset)
+                    .firstOrNull()?.let {
+                        onHashtagClick(it.item)
+                    }
+            }
+        },
         style = style,
-        onClick = { offset ->
-            annotated.getStringAnnotations(TAG_WIKILINK, offset, offset)
-                .firstOrNull()?.let {
-                    onWikilinkClick(it.item)
-                    return@ClickableText
-                }
-            annotated.getStringAnnotations(TAG_HASHTAG, offset, offset)
-                .firstOrNull()?.let {
-                    onHashtagClick(it.item)
-                }
-        }
+        onTextLayout = { layoutResult = it }
     )
 }
 

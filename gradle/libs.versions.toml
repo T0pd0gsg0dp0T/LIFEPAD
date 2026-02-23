@@ -18,11 +18,13 @@ security-crypto = "1.1.0-alpha06"
 junit = "4.13.2"
 junit-ext = "1.2.1"
 espresso = "3.6.1"
+test-rules = "1.6.1"
 truth = "1.4.4"
 turbine = "1.2.0"
 mockk = "1.13.13"
 coil = "2.6.0"
 errorprone-annotations = "2.26.1"
+dependencycheck = "9.2.0"
 
 [libraries]
 # Core Android
@@ -91,6 +93,7 @@ lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 junit-ext = { group = "androidx.test.ext", name = "junit", version.ref = "junit-ext" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+test-rules = { group = "androidx.test", name = "rules", version.ref = "test-rules" }
 truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
@@ -120,7 +123,7 @@ markwon = [
     "markwon-linkify"
 ]
 testing = ["junit", "truth", "turbine", "coroutines-test", "mockk"]
-android-testing = ["junit-ext", "espresso-core", "mockk-android", "room-testing"]
+android-testing = ["junit-ext", "espresso-core", "mockk-android", "room-testing", "test-rules"]
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -129,3 +132,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+dependencycheck = { id = "org.owasp.dependencycheck", version.ref = "dependencycheck" }

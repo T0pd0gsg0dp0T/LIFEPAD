@@ -16,6 +16,7 @@ import com.lifepad.app.data.repository.ReminderRepository
 import com.lifepad.app.domain.cbt.EmotionRating
 import com.lifepad.app.domain.parser.WikilinkParser
 import com.lifepad.app.util.FileStorageManager
+import com.lifepad.app.util.MarkdownImageInserter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -454,12 +455,19 @@ What will I do next?"""
         }
     }
 
-    fun addAttachment(uri: Uri) {
+    fun addAttachment(uri: Uri, cursorPosition: Int) {
         viewModelScope.launch {
             val entryId = _uiState.value.entryId ?: saveEntry() ?: return@launch
             val filePath = fileStorageManager.saveFile(uri)
             if (filePath != null) {
                 journalRepository.addAttachment(entryId, filePath)
+                val state = _uiState.value
+                if (!state.content.contains(filePath)) {
+                    val updated = MarkdownImageInserter.insertImage(state.content, cursorPosition, filePath)
+                    _uiState.update { it.copy(content = updated) }
+                    refreshLinkedNotes(updated)
+                    scheduleAutoSave()
+                }
             } else {
                 _uiState.update { it.copy(errorMessage = "Failed to save attachment.") }
             }
@@ -470,6 +478,13 @@ What will I do next?"""
         viewModelScope.launch {
             fileStorageManager.deleteFile(attachment.filePath)
             journalRepository.deleteAttachment(attachment)
+            val state = _uiState.value
+            if (state.content.contains(attachment.filePath)) {
+                val pattern = Regex("""\n?!\[[^\]]*]\(${Regex.escape(attachment.filePath)}\)\n?""")
+                val updated = state.content.replace(pattern, "\n").trimEnd()
+                _uiState.update { it.copy(content = updated) }
+                scheduleAutoSave()
+            }
         }
     }
 

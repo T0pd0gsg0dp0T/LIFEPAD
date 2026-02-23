@@ -94,6 +94,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun determineAppState(): AppState {
+        if (BuildConfig.DEBUG && System.getProperty("lifepad.skipPin") == "true") {
+            return AppState.UNLOCKED
+        }
         return when {
             !securityManager.isPinSet() -> AppState.NEEDS_PIN_SETUP
             securityManager.shouldLockAfterBackground() -> AppState.LOCKED

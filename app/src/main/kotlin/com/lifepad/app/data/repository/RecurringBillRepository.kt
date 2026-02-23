@@ -9,6 +9,7 @@ import com.lifepad.app.data.local.entity.ReminderEntity
 import com.lifepad.app.notification.ReminderScheduler
 import kotlinx.coroutines.flow.Flow
 import java.util.Calendar
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -111,7 +112,7 @@ class RecurringBillRepository @Inject constructor(
         val reminder = ReminderEntity(
             id = bill.reminderId ?: 0L,
             title = "Bill Due Tomorrow: ${bill.name}",
-            message = "$${String.format("%.2f", bill.amount)} due tomorrow",
+            message = "$${String.format(Locale.getDefault(), "%.2f", bill.amount)} due tomorrow",
             triggerTime = triggerTime,
             repeatInterval = 0,
             isEnabled = true,

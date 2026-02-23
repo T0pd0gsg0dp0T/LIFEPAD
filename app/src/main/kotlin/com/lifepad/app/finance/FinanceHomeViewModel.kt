@@ -9,7 +9,7 @@ import com.lifepad.app.data.local.entity.TransactionEntity
 import com.lifepad.app.data.local.entity.TransactionType
 import com.lifepad.app.data.repository.FinanceRepository
 import com.lifepad.app.data.repository.HashtagRepository
-import com.lifepad.app.domain.parser.HashtagParser
+import com.lifepad.app.data.local.entity.HashtagUsageName
 import com.lifepad.app.settings.FinanceIntervalSetting
 import com.lifepad.app.settings.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 data class FinanceHomeUiState(
     val transactions: List<TransactionEntity> = emptyList(),
@@ -59,37 +58,132 @@ class FinanceHomeViewModel @Inject constructor(
     private val _categoryTagOrLogic = MutableStateFlow(true)
     private val _errorMessage = MutableStateFlow<String?>(null)
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<FinanceHomeUiState> = combine(
+    private data class FinanceCore(
+        val transactions: List<TransactionEntity>,
+        val categories: List<CategoryEntity>,
+        val archivedCategories: List<CategoryEntity>,
+        val hashtags: List<HashtagEntity>,
+        val transactionHashtags: List<HashtagUsageName>
+    )
+
+    private data class FinanceFilters(
+        val showNotes: Boolean,
+        val showTags: Boolean,
+        val interval: FinanceIntervalSetting,
+        val customStart: Long?,
+        val customEnd: Long?,
+        val searchQuery: String,
+        val selectedCategoryIds: Set<Long>,
+        val selectedHashtags: Set<String>,
+        val categoryTagOrLogic: Boolean,
+        val errorMessage: String?
+    )
+
+    private val coreFlow = combine(
         financeRepository.getAllTransactions(),
         financeRepository.getAllCategories(),
         financeRepository.getArchivedCategories(),
         hashtagRepository.getAllHashtags(),
+        financeRepository.observeHashtagNamesForTransactions()
+    ) { transactions, categories, archivedCategories, hashtags, transactionHashtags ->
+        FinanceCore(
+            transactions = transactions,
+            categories = categories,
+            archivedCategories = archivedCategories,
+            hashtags = hashtags,
+            transactionHashtags = transactionHashtags
+        )
+    }
+
+    private data class FilterRange(
+        val showNotes: Boolean,
+        val showTags: Boolean,
+        val interval: FinanceIntervalSetting,
+        val customStart: Long?,
+        val customEnd: Long?
+    )
+
+    private data class FilterQuery(
+        val searchQuery: String,
+        val selectedCategoryIds: Set<Long>,
+        val selectedHashtags: Set<String>,
+        val categoryTagOrLogic: Boolean,
+        val errorMessage: String?
+    )
+
+    private val filterRangeFlow = combine(
         settingsRepository.financeShowNotes,
         settingsRepository.financeShowTags,
         _interval,
         _customStart,
-        _customEnd,
+        _customEnd
+    ) { showNotes, showTags, interval, customStart, customEnd ->
+        FilterRange(
+            showNotes = showNotes,
+            showTags = showTags,
+            interval = interval,
+            customStart = customStart,
+            customEnd = customEnd
+        )
+    }
+
+    private val filterQueryFlow = combine(
         _searchQuery,
         _selectedCategoryIds,
         _selectedHashtags,
         _categoryTagOrLogic,
         _errorMessage
-    ) { values ->
-        val transactions = values[0] as List<TransactionEntity>
-        val categories = values[1] as List<CategoryEntity>
-        val archivedCategories = values[2] as List<CategoryEntity>
-        val hashtags = values[3] as List<HashtagEntity>
-        val showNotes = values[4] as Boolean
-        val showTags = values[5] as Boolean
-        val interval = values[6] as FinanceIntervalSetting
-        val customStart = values[7] as Long?
-        val customEnd = values[8] as Long?
-        val searchQuery = values[9] as String
-        val selectedCategoryIds = values[10] as Set<Long>
-        val selectedHashtags = values[11] as Set<String>
-        val categoryTagOrLogic = values[12] as Boolean
-        val errorMessage = values[13] as String?
+    ) { searchQuery, selectedCategoryIds, selectedHashtags, categoryTagOrLogic, errorMessage ->
+        FilterQuery(
+            searchQuery = searchQuery,
+            selectedCategoryIds = selectedCategoryIds,
+            selectedHashtags = selectedHashtags,
+            categoryTagOrLogic = categoryTagOrLogic,
+            errorMessage = errorMessage
+        )
+    }
+
+    private val filterFlow = combine(
+        filterRangeFlow,
+        filterQueryFlow
+    ) { range, query ->
+        FinanceFilters(
+            showNotes = range.showNotes,
+            showTags = range.showTags,
+            interval = range.interval,
+            customStart = range.customStart,
+            customEnd = range.customEnd,
+            searchQuery = query.searchQuery,
+            selectedCategoryIds = query.selectedCategoryIds,
+            selectedHashtags = query.selectedHashtags,
+            categoryTagOrLogic = query.categoryTagOrLogic,
+            errorMessage = query.errorMessage
+        )
+    }
+
+    val uiState: StateFlow<FinanceHomeUiState> = combine(
+        coreFlow,
+        filterFlow
+    ) { core, filters ->
+        val transactions = core.transactions
+        val categories = core.categories
+        val archivedCategories = core.archivedCategories
+        val hashtags = core.hashtags
+        val transactionHashtags = core.transactionHashtags
+        val showNotes = filters.showNotes
+        val showTags = filters.showTags
+        val interval = filters.interval
+        val customStart = filters.customStart
+        val customEnd = filters.customEnd
+        val searchQuery = filters.searchQuery
+        val selectedCategoryIds = filters.selectedCategoryIds
+        val selectedHashtags = filters.selectedHashtags
+        val categoryTagOrLogic = filters.categoryTagOrLogic
+        val errorMessage = filters.errorMessage
+
+        val hashtagMap = transactionHashtags
+            .groupBy { it.itemId }
+            .mapValues { (_, list) -> list.map { it.name }.toSet() }
 
         val (start, end) = getIntervalRange(interval, customStart, customEnd)
         val filtered = transactions.filter { tx ->
@@ -108,7 +202,7 @@ class FinanceHomeViewModel @Inject constructor(
                 tx.categoryId != null && tx.categoryId in selectedCategoryIds
             }
 
-            val txTags = HashtagParser.extractHashtags(tx.description).toSet()
+            val txTags = hashtagMap[tx.id].orEmpty()
             val matchesTags = if (selectedHashtags.isEmpty()) {
                 true
             } else {

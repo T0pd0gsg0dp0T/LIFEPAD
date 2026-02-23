@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,7 +8,17 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.dependencycheck)
 }
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+val hasReleaseKeystore = keystorePropertiesFile.exists().also { exists ->
+    if (exists) {
+        FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
+    }
+}
+val nvdApiKey = System.getenv("NVD_API_KEY")
 
 android {
     namespace = "com.lifepad.app"
@@ -18,7 +31,7 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.lifepad.app.LifepadTestRunner"
 
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
@@ -27,11 +40,26 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
-            // Use debug signing for local release installs.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                // Fallback for local installs; CI/prod should provide keystore.properties
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -64,6 +92,26 @@ android {
             excludes += "/META-INF/LICENSE-notice.md"
         }
     }
+}
+
+dependencyCheck {
+    formats = listOf("HTML", "JSON")
+    failBuildOnCVSS = 7.0f
+    autoUpdate = !nvdApiKey.isNullOrBlank()
+    failOnError = false
+    skip = nvdApiKey.isNullOrBlank()
+    nvd(
+        closureOf<org.owasp.dependencycheck.gradle.extension.NvdExtension> {
+            apiKey = nvdApiKey
+        }
+    )
+}
+
+tasks.register("connectedAndroidTestKeepApp") {
+    group = "verification"
+    description = "Runs connectedAndroidTest and reinstalls debug APK afterward so it stays on device."
+    dependsOn("connectedAndroidTest")
+    finalizedBy("installDebug")
 }
 
 dependencies {

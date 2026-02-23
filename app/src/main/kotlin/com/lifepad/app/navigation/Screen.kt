@@ -46,17 +46,20 @@ sealed class Screen(val route: String) {
     data object ExposureJournal : Screen("journal/exposure?entryId={entryId}") {
         fun createRoute(entryId: Long? = null) = "journal/exposure?entryId=${entryId ?: 0}"
     }
-    data object GratitudeJournal : Screen("journal/gratitude?entryId={entryId}") {
-        fun createRoute(entryId: Long? = null) = "journal/gratitude?entryId=${entryId ?: 0}"
+    data object GratitudeJournal : Screen("journal/gratitude?entryId={entryId}&fromReminder={fromReminder}") {
+        fun createRoute(entryId: Long? = null, fromReminder: Boolean = false) =
+            "journal/gratitude?entryId=${entryId ?: 0}&fromReminder=$fromReminder"
     }
-    data object ReflectionJournal : Screen("journal/reflection?entryId={entryId}") {
-        fun createRoute(entryId: Long? = null) = "journal/reflection?entryId=${entryId ?: 0}"
+    data object ReflectionJournal : Screen("journal/reflection?entryId={entryId}&fromReminder={fromReminder}") {
+        fun createRoute(entryId: Long? = null, fromReminder: Boolean = false) =
+            "journal/reflection?entryId=${entryId ?: 0}&fromReminder=$fromReminder"
     }
     data object SavoringJournal : Screen("journal/savoring?entryId={entryId}") {
         fun createRoute(entryId: Long? = null) = "journal/savoring?entryId=${entryId ?: 0}"
     }
-    data object CheckInJournal : Screen("journal/checkin?entryId={entryId}") {
-        fun createRoute(entryId: Long? = null) = "journal/checkin?entryId=${entryId ?: 0}"
+    data object CheckInJournal : Screen("journal/checkin?entryId={entryId}&fromReminder={fromReminder}") {
+        fun createRoute(entryId: Long? = null, fromReminder: Boolean = false) =
+            "journal/checkin?entryId=${entryId ?: 0}&fromReminder=$fromReminder"
     }
     data object FoodJournal : Screen("journal/food?entryId={entryId}") {
         fun createRoute(entryId: Long? = null) = "journal/food?entryId=${entryId ?: 0}"

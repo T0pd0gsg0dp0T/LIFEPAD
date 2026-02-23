@@ -319,11 +319,17 @@ fun LifepadNavHost(
                 navArgument("entryId") {
                     type = NavType.LongType
                     defaultValue = 0L
+                },
+                navArgument("fromReminder") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) {
+            val fromReminder = it.arguments?.getBoolean("fromReminder") ?: false
             GratitudeJournalScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                fromReminder = fromReminder
             )
         }
 
@@ -334,11 +340,17 @@ fun LifepadNavHost(
                 navArgument("entryId") {
                     type = NavType.LongType
                     defaultValue = 0L
+                },
+                navArgument("fromReminder") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) {
+            val fromReminder = it.arguments?.getBoolean("fromReminder") ?: false
             ReflectionJournalScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                fromReminder = fromReminder
             )
         }
 
@@ -364,11 +376,17 @@ fun LifepadNavHost(
                 navArgument("entryId") {
                     type = NavType.LongType
                     defaultValue = 0L
+                },
+                navArgument("fromReminder") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) {
+            val fromReminder = it.arguments?.getBoolean("fromReminder") ?: false
             CheckInJournalScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                fromReminder = fromReminder
             )
         }
 

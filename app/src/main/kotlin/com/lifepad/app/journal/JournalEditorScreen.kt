@@ -1,5 +1,8 @@
 package com.lifepad.app.journal
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,11 +26,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.lifepad.app.components.HashtagChip
 import com.lifepad.app.components.InteractiveMarkdownText
 import com.lifepad.app.components.MoodSelector
@@ -47,15 +55,44 @@ fun JournalEditorScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val mediaPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+    var contentField by remember { mutableStateOf(TextFieldValue(uiState.content)) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
             if (uri != null) {
-                viewModel.addAttachment(uri)
+                viewModel.addAttachment(uri, contentField.selection.start)
             }
         }
     )
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            scope.launch {
+                snackbarHostState.showSnackbar("Photo permission denied. You can still pick a photo.")
+            }
+        }
+        photoPickerLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
+
+    LaunchedEffect(uiState.content) {
+        if (uiState.content != contentField.text) {
+            contentField = contentField.copy(
+                text = uiState.content,
+                selection = TextRange(uiState.content.length)
+            )
+        }
+    }
 
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { message ->
@@ -103,9 +140,17 @@ fun JournalEditorScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        photoPickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            mediaPermission
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (hasPermission) {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        } else {
+                            permissionLauncher.launch(mediaPermission)
+                        }
                     }) {
                         Icon(Icons.Default.AddPhotoAlternate, contentDescription = "Add photo")
                     }
@@ -195,8 +240,13 @@ fun JournalEditorScreen(
                     } else {
                         // Content editor
                         OutlinedTextField(
-                            value = uiState.content,
-                            onValueChange = viewModel::onContentChange,
+                            value = contentField,
+                            onValueChange = { newValue ->
+                                contentField = newValue
+                                if (newValue.text != uiState.content) {
+                                    viewModel.onContentChange(newValue.text)
+                                }
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxWidth()
@@ -224,7 +274,12 @@ fun JournalEditorScreen(
                             items(uiState.attachments) { attachment ->
                                 Box {
                                     Image(
-                                        painter = rememberAsyncImagePainter(File(attachment.filePath)),
+                                        painter = rememberAsyncImagePainter(
+                                            ImageRequest.Builder(context)
+                                                .data(File(attachment.filePath))
+                                                .size(200)
+                                                .build()
+                                        ),
                                         contentDescription = null,
                                         modifier = Modifier.height(100.dp)
                                     )

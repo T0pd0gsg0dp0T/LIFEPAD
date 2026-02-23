@@ -13,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,6 +30,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -39,17 +42,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.MoodSelector
+import com.lifepad.app.components.ReminderDialog
 import com.lifepad.app.components.StepperIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GratitudeJournalScreen(
     onNavigateBack: () -> Unit,
+    fromReminder: Boolean = false,
     viewModel: GratitudeJournalViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var currentStep by rememberSaveable { mutableStateOf(0) }
+    var currentStep by rememberSaveable { mutableIntStateOf(0) }
+    var showReminderPrompt by rememberSaveable { mutableStateOf(fromReminder) }
     val scrollState = rememberScrollState()
     val steps = listOf("List", "Meaning", "Mood")
 
@@ -75,6 +81,17 @@ fun GratitudeJournalScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = viewModel::toggleReminderDialog) {
+                        Icon(
+                            imageVector = if (uiState.reminders.isNotEmpty())
+                                Icons.Filled.NotificationsActive
+                            else
+                                Icons.Outlined.Notifications,
+                            contentDescription = "Set reminder"
+                        )
                     }
                 }
             )
@@ -175,5 +192,29 @@ fun GratitudeJournalScreen(
                 }
             }
         }
+    }
+
+    if (showReminderPrompt) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Time for gratitude") },
+            text = { Text("Please complete your daily gratitude entry now.") },
+            confirmButton = {
+                TextButton(onClick = { showReminderPrompt = false }) {
+                    Text("Start")
+                }
+            }
+        )
+    }
+
+    if (uiState.showReminderDialog) {
+        ReminderDialog(
+            onDismiss = viewModel::toggleReminderDialog,
+            onConfirm = { title, message, triggerTime, repeatInterval ->
+                viewModel.saveReminder(title, message, triggerTime, repeatInterval)
+            },
+            initialTitle = "Daily Gratitude",
+            initialRepeatOption = com.lifepad.app.components.RepeatOption.DAILY
+        )
     }
 }

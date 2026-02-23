@@ -28,6 +28,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -49,7 +50,7 @@ fun SavoringJournalScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var currentStep by rememberSaveable { mutableStateOf(0) }
+    var currentStep by rememberSaveable { mutableIntStateOf(0) }
     val scrollState = rememberScrollState()
     val steps = listOf("Moment", "Senses", "Savor", "Mood")
 

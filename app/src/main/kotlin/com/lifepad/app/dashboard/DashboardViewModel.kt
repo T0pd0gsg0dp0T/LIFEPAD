@@ -11,18 +11,21 @@ import com.lifepad.app.data.repository.RecurringBillRepository
 import com.lifepad.app.domain.finance.CashflowForecaster
 import com.lifepad.app.domain.finance.SafeToSpendCalculator
 import com.lifepad.app.components.MoodDataPoint
+import com.lifepad.app.components.TimeOfDayMoodEntry
 import com.lifepad.app.components.IncomeExpenseEntry
+import com.lifepad.app.data.local.dao.EmotionFrequencyRow
+import com.lifepad.app.data.local.dao.TrapFrequencyRow
 import com.lifepad.app.data.local.entity.NetWorthSnapshotEntity
 import com.lifepad.app.domain.finance.ForecastPoint
 import com.lifepad.app.settings.FinanceWidget
 import com.lifepad.app.settings.MoodWidget
+import com.lifepad.app.settings.MoodWidgetPeriod
 import com.lifepad.app.settings.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -30,13 +33,17 @@ import javax.inject.Inject
 
 data class DashboardUiState(
     val financeWidget: FinanceWidget = FinanceWidget.INCOME_EXPENSE,
-    val moodWidget: MoodWidget = MoodWidget.MOOD_LINE_2W,
+    val moodWidget: MoodWidget = MoodWidget.MOOD_LINE,
+    val moodWidgetPeriod: MoodWidgetPeriod = MoodWidgetPeriod.MONTH,
     val incomeExpenseData: List<IncomeExpenseEntry> = emptyList(),
     val cashflowPoints: List<ForecastPoint> = emptyList(),
     val netWorthSnapshots: List<NetWorthSnapshotEntity> = emptyList(),
     val moodLinePoints: List<MoodDataPoint> = emptyList(),
     val moodCalendarMap: Map<Long, Double> = emptyMap(),
     val moodDistribution: Map<Int, Int> = emptyMap(),
+    val moodByTimeOfDay: List<TimeOfDayMoodEntry> = emptyList(),
+    val emotionFrequency: List<EmotionFrequencyRow> = emptyList(),
+    val trapFrequency: List<TrapFrequencyRow> = emptyList(),
     val recentNoteId: Long? = null,
     val recentNoteTitle: String? = null,
     val netBalance: Double = 0.0,
@@ -56,6 +63,8 @@ class DashboardViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _safeToSpend = MutableStateFlow(0.0)
+    private val _emotionFrequency = MutableStateFlow<List<EmotionFrequencyRow>>(emptyList())
+    private val _trapFrequency = MutableStateFlow<List<TrapFrequencyRow>>(emptyList())
 
     init {
         // Compute safe-to-spend in a separate flow to avoid 5-param combine issue
@@ -72,6 +81,26 @@ class DashboardViewModel @Inject constructor(
                 SafeToSpendCalculator.compute(balance, monthBills, goals).dailyAllowance
             }.collect { _safeToSpend.value = it }
         }
+
+        viewModelScope.launch {
+            combine(
+                settingsRepository.moodWidgetPeriod,
+                journalRepository.getAllEntries()
+            ) { period, entries -> period to entries }
+                .collect { (period, entries) ->
+                    if (entries.isEmpty()) {
+                        _emotionFrequency.value = emptyList()
+                        _trapFrequency.value = emptyList()
+                        return@collect
+                    }
+                    val cal = Calendar.getInstance()
+                    val endDate = cal.timeInMillis
+                    cal.add(Calendar.DAY_OF_YEAR, -period.days)
+                    val startDate = cal.timeInMillis
+                    _emotionFrequency.value = journalRepository.getEmotionFrequency(startDate, endDate)
+                    _trapFrequency.value = journalRepository.getTrapFrequency(startDate, endDate)
+                }
+        }
     }
 
     val uiState: StateFlow<DashboardUiState> = combine(
@@ -83,7 +112,10 @@ class DashboardViewModel @Inject constructor(
             recurringBillRepository.getConfirmedBills(),
             netWorthRepository.getAllSnapshots(),
             settingsRepository.financeWidget,
-            settingsRepository.moodWidget
+            settingsRepository.moodWidget,
+            settingsRepository.moodWidgetPeriod,
+            _emotionFrequency,
+            _trapFrequency
         )
     ) { values ->
         @Suppress("UNCHECKED_CAST")
@@ -99,11 +131,15 @@ class DashboardViewModel @Inject constructor(
         val netWorthSnapshots = values[5] as List<NetWorthSnapshotEntity>
         val financeWidget = values[6] as FinanceWidget
         val moodWidget = values[7] as MoodWidget
+        val moodWidgetPeriod = values[8] as MoodWidgetPeriod
+        val emotionFrequency = values[9] as List<EmotionFrequencyRow>
+        val trapFrequency = values[10] as List<TrapFrequencyRow>
 
         val recentNote = notes.firstOrNull()
-        val moodLinePoints = buildMoodLine(entries, 14)
-        val moodCalendarMap = buildMoodCalendar(entries, 30)
-        val moodDistribution = buildMoodDistribution(entries, 30)
+        val moodLinePoints = buildMoodLine(entries, moodWidgetPeriod.days)
+        val moodCalendarMap = buildMoodCalendar(entries, moodWidgetPeriod.days)
+        val moodDistribution = buildMoodDistribution(entries, moodWidgetPeriod.days)
+        val moodByTimeOfDay = buildMoodByTimeOfDay(entries, moodWidgetPeriod.days)
         val incomeExpenseData = buildIncomeExpenseData(transactions, 6)
         val cashflowPoints = CashflowForecaster.forecast(
             currentBalance = balance,
@@ -114,12 +150,16 @@ class DashboardViewModel @Inject constructor(
         DashboardUiState(
             financeWidget = financeWidget,
             moodWidget = moodWidget,
+            moodWidgetPeriod = moodWidgetPeriod,
             incomeExpenseData = incomeExpenseData,
             cashflowPoints = cashflowPoints,
             netWorthSnapshots = netWorthSnapshots,
             moodLinePoints = moodLinePoints,
             moodCalendarMap = moodCalendarMap,
             moodDistribution = moodDistribution,
+            moodByTimeOfDay = moodByTimeOfDay,
+            emotionFrequency = emotionFrequency,
+            trapFrequency = trapFrequency,
             recentNoteId = recentNote?.id,
             recentNoteTitle = recentNote?.title?.ifBlank { "Untitled" },
             netBalance = balance,
@@ -185,6 +225,47 @@ class DashboardViewModel @Inject constructor(
             .filter { it.entryDate in startMillis..endCal.timeInMillis }
             .groupingBy { it.mood }
             .eachCount()
+    }
+
+    private fun buildMoodByTimeOfDay(
+        entries: List<com.lifepad.app.data.local.entity.JournalEntryEntity>,
+        days: Int
+    ): List<TimeOfDayMoodEntry> {
+        if (entries.isEmpty()) return emptyList()
+        val dayMillis = 24 * 60 * 60 * 1000L
+        val endCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        val startMillis = endCal.timeInMillis - (days - 1) * dayMillis
+        val recentEntries = entries.filter { it.entryDate in startMillis..endCal.timeInMillis }
+        if (recentEntries.isEmpty()) return emptyList()
+        val buckets = listOf(
+            "Night" to 0..5,
+            "Morning" to 6..11,
+            "Afternoon" to 12..17,
+            "Evening" to 18..23
+        )
+        val sums = IntArray(buckets.size)
+        val counts = IntArray(buckets.size)
+        recentEntries.forEach { entry ->
+            val cal = Calendar.getInstance().apply { timeInMillis = entry.entryDate }
+            val hour = cal.get(Calendar.HOUR_OF_DAY)
+            val index = when (hour) {
+                in 0..5 -> 0
+                in 6..11 -> 1
+                in 12..17 -> 2
+                else -> 3
+            }
+            sums[index] += entry.mood
+            counts[index] += 1
+        }
+        return buckets.mapIndexed { index, (label, _) ->
+            val avg = if (counts[index] == 0) 0f else sums[index].toFloat() / counts[index]
+            TimeOfDayMoodEntry(label = label, averageMood = avg, count = counts[index])
+        }
     }
 
     private fun buildIncomeExpenseData(

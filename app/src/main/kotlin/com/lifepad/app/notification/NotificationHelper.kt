@@ -3,6 +3,7 @@ package com.lifepad.app.notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.app.PendingIntent
 import androidx.core.app.NotificationCompat
 import com.lifepad.app.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -22,7 +23,7 @@ class NotificationHelper @Inject constructor(
         val channel = NotificationChannel(
             CHANNEL_ID,
             CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "LIFEPAD reminder notifications"
         }
@@ -30,12 +31,20 @@ class NotificationHelper @Inject constructor(
         manager.createNotificationChannel(channel)
     }
 
-    fun showNotification(id: Int, title: String, message: String) {
+    fun showReminderNotification(
+        id: Int,
+        title: String,
+        message: String,
+        pendingIntent: PendingIntent?
+    ) {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setFullScreenIntent(pendingIntent, true)
             .setAutoCancel(true)
             .build()
 

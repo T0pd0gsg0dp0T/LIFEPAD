@@ -52,6 +52,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -108,7 +109,7 @@ fun FinanceScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currencyFormat = NumberFormat.getCurrencyInstance()
 
-    var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showCustomRangePicker by remember { mutableStateOf(false) }
@@ -504,6 +505,7 @@ private fun RecordRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = { rowMenu = true })
+            .testTag("transaction_item")
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -799,7 +801,7 @@ private fun StatsTab(
                         Text(currencyFormat.format(amount), style = MaterialTheme.typography.bodyMedium)
                     }
                     androidx.compose.material3.LinearProgressIndicator(
-                        progress = (amount / expenseDenominator).coerceIn(0.0, 1.0).toFloat(),
+                        progress = { (amount / expenseDenominator).coerceIn(0.0, 1.0).toFloat() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp),

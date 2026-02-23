@@ -54,7 +54,11 @@ enum class RepeatOption(val label: String, val intervalMs: Long) {
 @Composable
 fun ReminderDialog(
     onDismiss: () -> Unit,
-    onConfirm: (title: String, message: String, triggerTime: Long, repeatInterval: Long) -> Unit
+    onConfirm: (title: String, message: String, triggerTime: Long, repeatInterval: Long) -> Unit,
+    initialTitle: String = "",
+    initialMessage: String = "",
+    initialRepeatOption: RepeatOption = RepeatOption.NONE,
+    initialTriggerTime: Long? = null
 ) {
     val context = LocalContext.current
     var notificationPermissionGranted by remember {
@@ -80,19 +84,23 @@ fun ReminderDialog(
         }
     }
 
-    var title by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("") }
-    var selectedRepeat by remember { mutableStateOf(RepeatOption.NONE) }
+    var title by remember { mutableStateOf(initialTitle) }
+    var message by remember { mutableStateOf(initialMessage) }
+    var selectedRepeat by remember { mutableStateOf(initialRepeatOption) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
     val cal = Calendar.getInstance().apply {
-        add(Calendar.HOUR_OF_DAY, 1)
-        set(Calendar.MINUTE, 0)
+        if (initialTriggerTime != null) {
+            timeInMillis = initialTriggerTime
+        } else {
+            add(Calendar.HOUR_OF_DAY, 1)
+            set(Calendar.MINUTE, 0)
+        }
     }
     var selectedDate by remember { mutableLongStateOf(cal.timeInMillis) }
     var selectedHour by remember { mutableIntStateOf(cal.get(Calendar.HOUR_OF_DAY)) }
-    var selectedMinute by remember { mutableIntStateOf(0) }
+    var selectedMinute by remember { mutableIntStateOf(cal.get(Calendar.MINUTE)) }
 
     val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())

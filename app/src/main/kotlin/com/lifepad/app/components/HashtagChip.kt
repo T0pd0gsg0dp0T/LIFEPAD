@@ -16,8 +16,8 @@ import com.lifepad.app.ui.theme.HashtagColor
 @Composable
 fun HashtagChip(
     name: String,
-    onClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     Box(
         modifier = modifier

@@ -29,3 +29,11 @@ jobs:
 
       - name: Assemble Debug
         run: ./gradlew assembleDebug
+
+      - name: Assemble Release
+        run: ./gradlew assembleRelease
+
+      - name: Dependency Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: ./gradlew dependencyCheckAnalyze

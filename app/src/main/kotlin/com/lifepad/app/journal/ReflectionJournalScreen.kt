@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,6 +29,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,11 +47,13 @@ import com.lifepad.app.components.StepperIndicator
 @Composable
 fun ReflectionJournalScreen(
     onNavigateBack: () -> Unit,
+    fromReminder: Boolean = false,
     viewModel: ReflectionJournalViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var currentStep by rememberSaveable { mutableStateOf(0) }
+    var currentStep by rememberSaveable { mutableIntStateOf(0) }
+    var showReminderPrompt by rememberSaveable { mutableStateOf(fromReminder) }
     val scrollState = rememberScrollState()
     val steps = listOf("Intention", "Review", "Mood")
 
@@ -164,5 +168,18 @@ fun ReflectionJournalScreen(
                 }
             }
         }
+    }
+
+    if (showReminderPrompt) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Time for reflection") },
+            text = { Text("Please complete your daily reflection now.") },
+            confirmButton = {
+                TextButton(onClick = { showReminderPrompt = false }) {
+                    Text("Start")
+                }
+            }
+        )
     }
 }

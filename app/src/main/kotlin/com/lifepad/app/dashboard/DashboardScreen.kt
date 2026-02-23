@@ -48,6 +48,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.MoodLineChart
 import com.lifepad.app.components.MoodCalendar
 import com.lifepad.app.components.MoodDistributionChart
+import com.lifepad.app.components.MoodTimeOfDayChart
+import com.lifepad.app.components.EmotionFrequencyChart
+import com.lifepad.app.components.TrapFrequencyChart
 import com.lifepad.app.components.IncomeExpenseBarChart
 import com.lifepad.app.components.CashflowLineChart
 import com.lifepad.app.components.NetWorthLineChart
@@ -79,6 +82,7 @@ fun DashboardScreen(
     var showJournalTemplateDialog by remember { mutableStateOf(false) }
 
     Scaffold(
+        modifier = Modifier.testTag("screen_dashboard"),
         topBar = {
             TopAppBar(
                 title = {
@@ -96,10 +100,16 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToSearch) {
+                    IconButton(
+                        onClick = onNavigateToSearch,
+                        modifier = Modifier.testTag("dashboard_search")
+                    ) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     }
-                    IconButton(onClick = onNavigateToSettings) {
+                    IconButton(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier.testTag("dashboard_settings")
+                    ) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
@@ -130,13 +140,13 @@ fun DashboardScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .testTag("screen_dashboard"),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 DashboardSection(
                     title = "Finance",
-                    onSeeAll = onNavigateToFinance
+                    onSeeAll = onNavigateToFinance,
+                    seeAllTag = "dashboard_finance_see_all"
                 ) {
                     when (uiState.financeWidget) {
                         FinanceWidget.INCOME_EXPENSE -> {
@@ -164,36 +174,55 @@ fun DashboardScreen(
                 }
 
                 DashboardSection(
-                    title = when (uiState.moodWidget) {
-                        MoodWidget.MOOD_LINE_2W -> "Mood (last 2 weeks)"
-                        MoodWidget.MOOD_CALENDAR_30D -> "Mood (last 30 days)"
-                        MoodWidget.MOOD_DISTRIBUTION_30D -> "Mood (distribution)"
-                    },
-                    onSeeAll = onNavigateToJournal
+                    title = "${uiState.moodWidget.label} (${uiState.moodWidgetPeriod.label.lowercase()})",
+                    onSeeAll = onNavigateToJournal,
+                    seeAllTag = "dashboard_journal_see_all"
                 ) {
                     when (uiState.moodWidget) {
-                        MoodWidget.MOOD_LINE_2W -> {
+                        MoodWidget.MOOD_LINE -> {
                             if (uiState.moodLinePoints.isEmpty()) {
                                 EmptyCardText("No mood entries yet")
                             } else {
                                 MoodLineChart(dataPoints = uiState.moodLinePoints)
                             }
                         }
-                        MoodWidget.MOOD_CALENDAR_30D -> {
+                        MoodWidget.MOOD_CALENDAR -> {
                             if (uiState.moodCalendarMap.isEmpty()) {
                                 EmptyCardText("No mood entries yet")
                             } else {
                                 MoodCalendar(
                                     dailyMoodMap = uiState.moodCalendarMap,
-                                    periodDays = 30
+                                    periodDays = uiState.moodWidgetPeriod.days
                                 )
                             }
                         }
-                        MoodWidget.MOOD_DISTRIBUTION_30D -> {
+                        MoodWidget.MOOD_DISTRIBUTION -> {
                             if (uiState.moodDistribution.isEmpty()) {
                                 EmptyCardText("No mood entries yet")
                             } else {
                                 MoodDistributionChart(distribution = uiState.moodDistribution)
+                            }
+                        }
+                        MoodWidget.MOOD_TIME_OF_DAY -> {
+                            val entriesWithData = uiState.moodByTimeOfDay.filter { it.count > 0 }
+                            if (entriesWithData.isEmpty()) {
+                                EmptyCardText("No mood entries yet")
+                            } else {
+                                MoodTimeOfDayChart(entries = uiState.moodByTimeOfDay)
+                            }
+                        }
+                        MoodWidget.EMOTION_FREQUENCY -> {
+                            if (uiState.emotionFrequency.isEmpty()) {
+                                EmptyCardText("No emotion data yet")
+                            } else {
+                                EmotionFrequencyChart(emotionFrequency = uiState.emotionFrequency)
+                            }
+                        }
+                        MoodWidget.TRAP_FREQUENCY -> {
+                            if (uiState.trapFrequency.isEmpty()) {
+                                EmptyCardText("No thinking traps yet")
+                            } else {
+                                TrapFrequencyChart(trapFrequency = uiState.trapFrequency)
                             }
                         }
                     }
@@ -202,7 +231,9 @@ fun DashboardScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .animateContentSize(),
+                        .animateContentSize()
+                        .testTag("dashboard_notes_nav")
+                        .clickable(onClick = onNavigateToNotes),
                     colors = CardDefaults.cardColors(
                         containerColor = NotepadPrimary.copy(alpha = 0.2f)
                     ),
@@ -218,13 +249,17 @@ fun DashboardScreen(
                                 text = "Notes",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clickable(onClick = onNavigateToNotes)
+                                modifier = Modifier
+                                    .testTag("dashboard_notes_title")
+                                    .clickable(onClick = onNavigateToNotes)
                             )
                             Text(
                                 text = "View all",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.clickable(onClick = onNavigateToNotes)
+                                modifier = Modifier
+                                    .testTag("dashboard_notes_view_all")
+                                    .clickable(onClick = onNavigateToNotes)
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -258,14 +293,23 @@ fun DashboardScreen(
             title = { Text("Add") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { showAddDialog = false; onCreateNote() }) {
-                        Text("Note")
+                    TextButton(
+                        onClick = { showAddDialog = false; onCreateNote() },
+                        modifier = Modifier.testTag("dashboard_add_note")
+                    ) {
+                        Text(text = "Note")
                     }
-                    TextButton(onClick = { showAddDialog = false; showJournalTemplateDialog = true }) {
-                        Text("Journal Entry")
+                    TextButton(
+                        onClick = { showAddDialog = false; showJournalTemplateDialog = true },
+                        modifier = Modifier.testTag("dashboard_add_journal")
+                    ) {
+                        Text(text = "Journal Entry")
                     }
-                    TextButton(onClick = { showAddDialog = false; onCreateTransaction() }) {
-                        Text("Transaction")
+                    TextButton(
+                        onClick = { showAddDialog = false; onCreateTransaction() },
+                        modifier = Modifier.testTag("dashboard_add_transaction")
+                    ) {
+                        Text(text = "Transaction")
                     }
                 }
             },
@@ -316,6 +360,7 @@ fun DashboardScreen(
 private fun DashboardSection(
     title: String,
     onSeeAll: (() -> Unit)?,
+    seeAllTag: String? = null,
     content: @Composable () -> Unit
 ) {
     Card(
@@ -337,7 +382,9 @@ private fun DashboardSection(
                 )
                 if (onSeeAll != null) {
                     Row(
-                        modifier = Modifier.clickable(onClick = onSeeAll),
+                        modifier = Modifier
+                            .then(if (seeAllTag != null) Modifier.testTag(seeAllTag) else Modifier)
+                            .clickable(onClick = onSeeAll),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(

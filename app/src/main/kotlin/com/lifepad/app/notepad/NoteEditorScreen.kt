@@ -1,6 +1,9 @@
 package com.lifepad.app.notepad
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -59,6 +62,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -89,7 +93,9 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import androidx.compose.foundation.Image
+import androidx.core.content.ContextCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,6 +112,11 @@ fun NoteEditorScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    val mediaPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
 
     var showActionRow by remember { mutableStateOf(true) }
     var showSearchDialog by remember { mutableStateOf(false) }
@@ -114,7 +125,7 @@ fun NoteEditorScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var searchMatches by remember { mutableStateOf<List<IntRange>>(emptyList()) }
-    var currentMatchIndex by remember { mutableStateOf(0) }
+    var currentMatchIndex by remember { mutableIntStateOf(0) }
 
     var contentField by remember { mutableStateOf(TextFieldValue(uiState.content)) }
     var titleField by remember { mutableStateOf(uiState.title) }
@@ -124,10 +135,22 @@ fun NoteEditorScreen(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
             if (uri != null) {
-                viewModel.addAttachment(uri)
+                viewModel.addAttachment(uri, contentField.selection.start)
             }
         }
     )
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            scope.launch {
+                snackbarHostState.showSnackbar("Photo permission denied. You can still pick a photo.")
+            }
+        }
+        photoPickerLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
 
     LaunchedEffect(uiState.content) {
         if (uiState.content != contentField.text) {
@@ -183,12 +206,15 @@ fun NoteEditorScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                IconButton(onClick = {
+                IconButton(
+                    onClick = {
                     scope.launch {
                         viewModel.saveNow()
                         onNavigateBack()
                     }
-                }) {
+                },
+                    modifier = Modifier.testTag("nav_back")
+                ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
 
@@ -198,7 +224,9 @@ fun NoteEditorScreen(
                         titleField = it
                         viewModel.onTitleChange(it)
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("note_title_input"),
                     singleLine = true,
                     readOnly = uiState.doubleTapToEditEnabled && !uiState.isEditing,
                     textStyle = MaterialTheme.typography.titleLarge.merge(
@@ -301,9 +329,17 @@ fun NoteEditorScreen(
                         Icon(Icons.Default.Share, contentDescription = "Share")
                     }
                     IconButton(onClick = {
-                        photoPickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            mediaPermission
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (hasPermission) {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        } else {
+                            permissionLauncher.launch(mediaPermission)
+                        }
                     }) {
                         Icon(Icons.Default.AddPhotoAlternate, contentDescription = "Add image")
                     }
@@ -488,7 +524,12 @@ fun NoteEditorScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Image(
-                                painter = rememberAsyncImagePainter(File(attachment.filePath)),
+                                painter = rememberAsyncImagePainter(
+                                    ImageRequest.Builder(context)
+                                        .data(File(attachment.filePath))
+                                        .size(144)
+                                        .build()
+                                ),
                                 contentDescription = null,
                                 modifier = Modifier.size(72.dp)
                             )

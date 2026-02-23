@@ -22,13 +22,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.AlertDialog
@@ -245,6 +245,7 @@ fun NoteListScreen(
                 FabMenuButton(
                     label = "New List",
                     icon = Icons.Default.TaskAlt,
+                    tag = "fab_menu_new_list",
                     onClick = {
                         showFabMenu = false
                         onCreateNote(true, uiState.currentFolderId)
@@ -252,7 +253,8 @@ fun NoteListScreen(
                 )
                 FabMenuButton(
                     label = "New Note",
-                    icon = Icons.Default.Note,
+                    icon = Icons.AutoMirrored.Filled.Note,
+                    tag = "fab_menu_new_note",
                     onClick = {
                         showFabMenu = false
                         onCreateNote(false, uiState.currentFolderId)
@@ -261,6 +263,7 @@ fun NoteListScreen(
                 FabMenuButton(
                     label = "New Folder",
                     icon = Icons.Default.CreateNewFolder,
+                    tag = "fab_menu_new_folder",
                     onClick = {
                         showFabMenu = false
                         viewModel.promptNewFolder()
@@ -517,6 +520,7 @@ private fun FolderItem(
 private fun FabMenuButton(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tag: String? = null,
     onClick: () -> Unit
 ) {
     Surface(
@@ -525,6 +529,7 @@ private fun FabMenuButton(
     ) {
         Row(
             modifier = Modifier
+                .then(if (tag != null) Modifier.testTag(tag) else Modifier)
                 .clickable(onClick = onClick)
                 .padding(horizontal = 12.dp, vertical = 10.dp)
                 .height(40.dp),

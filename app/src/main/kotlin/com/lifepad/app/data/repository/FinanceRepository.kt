@@ -13,6 +13,7 @@ import com.lifepad.app.data.local.entity.BudgetEntity
 import com.lifepad.app.data.local.entity.CategoryEntity
 import com.lifepad.app.data.local.entity.CategoryType
 import com.lifepad.app.data.local.entity.ItemType
+import com.lifepad.app.data.local.entity.HashtagUsageName
 import com.lifepad.app.data.local.entity.TransactionEntity
 import com.lifepad.app.data.local.entity.TransactionType
 import com.lifepad.app.domain.parser.HashtagParser
@@ -98,7 +99,14 @@ class FinanceRepository @Inject constructor(
 
     suspend fun getCategoryById(categoryId: Long): CategoryEntity? = categoryDao.getCategoryById(categoryId)
 
-    suspend fun saveCategory(category: CategoryEntity): Long = categoryDao.insert(category)
+    suspend fun saveCategory(category: CategoryEntity): Long {
+        return if (category.id == 0L) {
+            categoryDao.insert(category)
+        } else {
+            categoryDao.update(category)
+            category.id
+        }
+    }
 
     suspend fun updateCategory(category: CategoryEntity) = categoryDao.update(category)
 
@@ -107,6 +115,9 @@ class FinanceRepository @Inject constructor(
     suspend fun archiveCategory(categoryId: Long) = categoryDao.archive(categoryId)
 
     suspend fun unarchiveCategory(categoryId: Long) = categoryDao.unarchive(categoryId)
+
+    fun observeHashtagNamesForTransactions(): Flow<List<HashtagUsageName>> =
+        hashtagDao.observeHashtagNamesForItemType(ItemType.TRANSACTION)
 
     suspend fun deleteCategory(categoryId: Long) = categoryDao.deleteById(categoryId)
 

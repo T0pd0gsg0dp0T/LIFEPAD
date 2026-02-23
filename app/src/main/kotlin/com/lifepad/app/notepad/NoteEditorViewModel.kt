@@ -18,6 +18,7 @@ import com.lifepad.app.data.repository.ReminderRepository
 import com.lifepad.app.domain.parser.ChecklistParser
 import com.lifepad.app.settings.SettingsRepository
 import com.lifepad.app.util.FileStorageManager
+import com.lifepad.app.util.MarkdownImageInserter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -473,7 +474,7 @@ class NoteEditorViewModel @Inject constructor(
         }
     }
 
-    fun addAttachment(uri: Uri) {
+    fun addAttachment(uri: Uri, cursorPosition: Int) {
         viewModelScope.launch {
             val currentNoteId = ensureNoteId() ?: return@launch
             val filePath = fileStorageManager.saveFile(uri)
@@ -483,18 +484,14 @@ class NoteEditorViewModel @Inject constructor(
                 if (!state.isChecklist) {
                     val current = state.content
                     if (!current.contains(filePath)) {
-                        val updated = buildString {
-                            append(current)
-                            if (current.isNotBlank() && !current.endsWith("\n")) append("\n")
-                            append("![](")
-                            append(filePath)
-                            append(")\n")
-                        }
+                        val updated = MarkdownImageInserter.insertImage(current, cursorPosition, filePath)
                         _uiState.update { it.copy(content = updated) }
                         hasUnsavedChanges = true
                         scheduleAutoSave()
                     }
                 } else {
+                    val updated = MarkdownImageInserter.insertImage(state.content, cursorPosition, filePath)
+                    _uiState.update { it.copy(content = updated) }
                     hasUnsavedChanges = true
                     scheduleAutoSave()
                 }

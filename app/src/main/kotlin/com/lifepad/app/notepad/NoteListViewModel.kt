@@ -9,6 +9,7 @@ import com.lifepad.app.data.repository.FolderRepository
 import com.lifepad.app.data.repository.NoteRepository
 import com.lifepad.app.util.FileStorageManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,7 @@ data class NoteListUiState(
 )
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class NoteListViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
     private val folderRepository: FolderRepository,
@@ -65,42 +67,105 @@ class NoteListViewModel @Inject constructor(
 
     private val allFoldersFlow = folderRepository.getAllFolders()
 
-    val uiState: StateFlow<NoteListUiState> = combine(
+    private data class NoteListCore(
+        val notes: List<NoteEntity>,
+        val folders: List<FolderEntity>,
+        val currentFolderId: Long?,
+        val folderPath: List<FolderEntity>,
+        val isEditMode: Boolean
+    )
+
+    private data class NoteListSelection(
+        val selectedNotes: Set<Long>,
+        val selectedFolders: Set<Long>,
+        val error: String?,
+        val showMove: Boolean,
+        val showDelete: Boolean,
+        val showNewFolder: Boolean
+    )
+
+    private val coreFlow = combine(
         notesFlow,
         foldersFlow,
         _currentFolderId,
         _folderPath,
-        _isEditMode,
-        _selectedNoteIds,
-        _selectedFolderIds,
-        _errorMessage,
-        _showMoveDialog,
-        _showDeleteDialog,
-        _showNewFolderDialog
-    ) { values ->
-        val notes = values[0] as List<NoteEntity>
-        val folders = values[1] as List<FolderEntity>
-        val currentFolderId = values[2] as Long?
-        val folderPath = values[3] as List<FolderEntity>
-        val isEditMode = values[4] as Boolean
-        val selectedNotes = values[5] as Set<Long>
-        val selectedFolders = values[6] as Set<Long>
-        val error = values[7] as String?
-        val showMove = values[8] as Boolean
-        val showDelete = values[9] as Boolean
-        val showNewFolder = values[10] as Boolean
-        NoteListUiState(
+        _isEditMode
+    ) { notes, folders, currentFolderId, folderPath, isEditMode ->
+        NoteListCore(
             notes = notes,
             folders = folders,
             currentFolderId = currentFolderId,
             folderPath = folderPath,
-            isEditMode = isEditMode,
-            selectedNoteIds = selectedNotes,
-            selectedFolderIds = selectedFolders,
-            errorMessage = error,
-            showMoveDialog = showMove,
-            showDeleteDialog = showDelete,
-            showNewFolderDialog = showNewFolder
+            isEditMode = isEditMode
+        )
+    }
+
+    private data class SelectionState(
+        val selectedNotes: Set<Long>,
+        val selectedFolders: Set<Long>,
+        val error: String?
+    )
+
+    private data class DialogState(
+        val showMove: Boolean,
+        val showDelete: Boolean,
+        val showNewFolder: Boolean
+    )
+
+    private val selectionStateFlow = combine(
+        _selectedNoteIds,
+        _selectedFolderIds,
+        _errorMessage
+    ) { selectedNotes, selectedFolders, error ->
+        SelectionState(
+            selectedNotes = selectedNotes,
+            selectedFolders = selectedFolders,
+            error = error
+        )
+    }
+
+    private val dialogStateFlow = combine(
+        _showMoveDialog,
+        _showDeleteDialog,
+        _showNewFolderDialog
+    ) { showMove, showDelete, showNewFolder ->
+        DialogState(
+            showMove = showMove,
+            showDelete = showDelete,
+            showNewFolder = showNewFolder
+        )
+    }
+
+    private val selectionFlow = combine(
+        selectionStateFlow,
+        dialogStateFlow
+    ) { selection, dialogs ->
+        NoteListSelection(
+            selectedNotes = selection.selectedNotes,
+            selectedFolders = selection.selectedFolders,
+            error = selection.error,
+            showMove = dialogs.showMove,
+            showDelete = dialogs.showDelete,
+            showNewFolder = dialogs.showNewFolder
+        )
+    }
+
+    val uiState: StateFlow<NoteListUiState> = combine(
+        coreFlow,
+        selectionFlow
+    ) { core, selection ->
+        NoteListUiState(
+            notes = core.notes,
+            folders = core.folders,
+            currentFolderId = core.currentFolderId,
+            folderPath = core.folderPath,
+            isEditMode = core.isEditMode,
+            selectedNoteIds = selection.selectedNotes,
+            selectedFolderIds = selection.selectedFolders,
+            errorMessage = selection.error,
+            showMoveDialog = selection.showMove,
+            showDeleteDialog = selection.showDelete,
+            showNewFolderDialog = selection.showNewFolder
         )
     }.stateIn(
         scope = viewModelScope,

@@ -163,18 +163,21 @@ fun JournalListScreen(
                             title = "Thought\nRecord",
                             icon = Icons.Default.Psychology,
                             onClick = { onNavigateToThoughtJournal(null) },
+                            tag = "journal_quick_thought",
                             modifier = Modifier.weight(1f)
                         )
                         QuickActionCard(
                             title = "Exposure\nLog",
                             icon = Icons.Default.Shield,
                             onClick = { onNavigateToExposureJournal(null) },
+                            tag = "journal_quick_exposure",
                             modifier = Modifier.weight(1f)
                         )
                         QuickActionCard(
                             title = "Daily\nReflection",
                             icon = Icons.Default.WbSunny,
                             onClick = { onCreateEntry("reflection") },
+                            tag = "journal_quick_reflection",
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -186,18 +189,21 @@ fun JournalListScreen(
                             title = "Gratitude",
                             icon = Icons.Default.Favorite,
                             onClick = { onCreateEntry("gratitude") },
+                            tag = "journal_quick_gratitude",
                             modifier = Modifier.weight(1f)
                         )
                         QuickActionCard(
                             title = "Savoring",
                             icon = Icons.Default.SentimentSatisfied,
                             onClick = { onCreateEntry("savoring") },
+                            tag = "journal_quick_savoring",
                             modifier = Modifier.weight(1f)
                         )
                         QuickActionCard(
                             title = "Food\nJournal",
                             icon = Icons.Default.Restaurant,
                             onClick = { onCreateEntry("food") },
+                            tag = "journal_quick_food",
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -209,15 +215,16 @@ fun JournalListScreen(
                             title = "Check-in",
                             icon = Icons.Default.SelfImprovement,
                             onClick = { onCreateEntry("check_in") },
+                            tag = "journal_quick_checkin",
                             modifier = Modifier.weight(1f)
                         )
                         QuickActionCard(
                             title = "Free\nWriting",
                             icon = Icons.Default.Edit,
                             onClick = { onCreateEntry("free") },
+                            tag = "journal_quick_free",
                             modifier = Modifier.weight(1f)
                         )
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -283,11 +290,13 @@ private fun QuickActionCard(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
+    tag: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .height(92.dp)
+            .then(if (tag != null) Modifier.testTag(tag) else Modifier)
             .clickable(onClick = onClick)
             .animateContentSize(),
         colors = CardDefaults.cardColors(
@@ -401,8 +410,15 @@ private fun JournalEntryItem(
 }
 
 private fun formatDate(timestamp: Long): String {
-    val formatter = SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault())
-    return formatter.format(Date(timestamp))
+    val formatter = SimpleDateFormat("M/d/yy, h:mma", Locale.getDefault())
+    val formatted = formatter.format(Date(timestamp))
+    return when {
+        formatted.endsWith("AM") -> formatted.dropLast(2) + "a"
+        formatted.endsWith("PM") -> formatted.dropLast(2) + "p"
+        formatted.endsWith("am") -> formatted.dropLast(2) + "a"
+        formatted.endsWith("pm") -> formatted.dropLast(2) + "p"
+        else -> formatted
+    }
 }
 
 private fun formatTemplateLabel(template: String): String = when (template) {

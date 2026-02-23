@@ -31,8 +31,8 @@ import com.lifepad.app.ui.theme.IncomeColor
 @Composable
 fun InsightCard(
     insight: FinancialInsight,
-    compact: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
 ) {
     val containerColor = when (insight.severity) {
         InsightSeverity.WARNING -> MaterialTheme.colorScheme.errorContainer

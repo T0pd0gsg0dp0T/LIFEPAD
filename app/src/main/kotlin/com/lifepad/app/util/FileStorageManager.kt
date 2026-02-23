@@ -5,6 +5,8 @@ import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,25 +16,29 @@ class FileStorageManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
-    fun saveFile(uri: Uri): String? {
-        return try {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-            val extension = getExtensionFromUri(uri)
-            val fileName = "${UUID.randomUUID()}.$extension"
-            val file = File(context.filesDir, fileName)
-            val outputStream = FileOutputStream(file)
-            inputStream.copyTo(outputStream)
-            inputStream.close()
-            outputStream.close()
-            file.absolutePath
+    suspend fun saveFile(uri: Uri): String? = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val extension = getExtensionFromUri(uri)
+                val fileName = if (extension.isNullOrBlank()) {
+                    UUID.randomUUID().toString()
+                } else {
+                    "${UUID.randomUUID()}.$extension"
+                }
+                val file = File(context.filesDir, fileName)
+                FileOutputStream(file).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+                file.absolutePath
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
 
-    fun deleteFile(filePath: String): Boolean {
-        return try {
+    suspend fun deleteFile(filePath: String): Boolean = withContext(Dispatchers.IO) {
+        try {
             val file = File(filePath)
             file.delete()
         } catch (e: Exception) {

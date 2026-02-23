@@ -24,6 +24,11 @@ class SettingsRepository @Inject constructor(
     )
     val moodWidget: StateFlow<MoodWidget> = _moodWidget.asStateFlow()
 
+    private val _moodWidgetPeriod = MutableStateFlow(
+        MoodWidgetPeriod.fromName(prefs.getString(KEY_MOOD_WIDGET_PERIOD, null))
+    )
+    val moodWidgetPeriod: StateFlow<MoodWidgetPeriod> = _moodWidgetPeriod.asStateFlow()
+
     private val _notesDoubleTapToEdit = MutableStateFlow(
         prefs.getBoolean(KEY_NOTES_DOUBLE_TAP_EDIT, false)
     )
@@ -54,6 +59,11 @@ class SettingsRepository @Inject constructor(
         _moodWidget.value = widget
     }
 
+    fun setMoodWidgetPeriod(period: MoodWidgetPeriod) {
+        prefs.edit().putString(KEY_MOOD_WIDGET_PERIOD, period.name).apply()
+        _moodWidgetPeriod.value = period
+    }
+
     fun setNotesDoubleTapToEdit(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_NOTES_DOUBLE_TAP_EDIT, enabled).apply()
         _notesDoubleTapToEdit.value = enabled
@@ -77,6 +87,7 @@ class SettingsRepository @Inject constructor(
     fun refresh() {
         _financeWidget.value = FinanceWidget.fromName(prefs.getString(KEY_FINANCE_WIDGET, null))
         _moodWidget.value = MoodWidget.fromName(prefs.getString(KEY_MOOD_WIDGET, null))
+        _moodWidgetPeriod.value = MoodWidgetPeriod.fromName(prefs.getString(KEY_MOOD_WIDGET_PERIOD, null))
         _notesDoubleTapToEdit.value = prefs.getBoolean(KEY_NOTES_DOUBLE_TAP_EDIT, false)
         _financeInterval.value = FinanceIntervalSetting.fromName(prefs.getString(KEY_FINANCE_INTERVAL, null))
         _financeShowNotes.value = prefs.getBoolean(KEY_FINANCE_SHOW_NOTES, true)
@@ -86,6 +97,7 @@ class SettingsRepository @Inject constructor(
     companion object {
         private const val KEY_FINANCE_WIDGET = "finance_widget"
         private const val KEY_MOOD_WIDGET = "mood_widget"
+        private const val KEY_MOOD_WIDGET_PERIOD = "mood_widget_period"
         private const val KEY_NOTES_DOUBLE_TAP_EDIT = "notes_double_tap_edit"
         private const val KEY_FINANCE_INTERVAL = "finance_interval"
         private const val KEY_FINANCE_SHOW_NOTES = "finance_show_notes"
@@ -119,13 +131,28 @@ enum class FinanceWidget(val label: String) {
 }
 
 enum class MoodWidget(val label: String) {
-    MOOD_LINE_2W("Mood Trend (2 weeks)"),
-    MOOD_CALENDAR_30D("Mood Calendar (30 days)"),
-    MOOD_DISTRIBUTION_30D("Mood Distribution (30 days)");
+    MOOD_LINE("Mood Trend"),
+    MOOD_CALENDAR("Mood Calendar"),
+    MOOD_DISTRIBUTION("Mood Distribution"),
+    MOOD_TIME_OF_DAY("Mood by Time of Day"),
+    EMOTION_FREQUENCY("Emotion Frequency"),
+    TRAP_FREQUENCY("Thinking Traps");
 
     companion object {
         fun fromName(name: String?): MoodWidget {
-            return entries.firstOrNull { it.name == name } ?: MOOD_LINE_2W
+            return entries.firstOrNull { it.name == name } ?: MOOD_LINE
+        }
+    }
+}
+
+enum class MoodWidgetPeriod(val label: String, val days: Int) {
+    WEEK("Week", 7),
+    MONTH("Month", 30),
+    YEAR("Year", 365);
+
+    companion object {
+        fun fromName(name: String?): MoodWidgetPeriod {
+            return entries.firstOrNull { it.name == name } ?: MONTH
         }
     }
 }

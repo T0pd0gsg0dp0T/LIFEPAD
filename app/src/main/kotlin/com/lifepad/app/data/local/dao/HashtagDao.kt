@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.lifepad.app.data.local.entity.HashtagEntity
 import com.lifepad.app.data.local.entity.HashtagUsageEntity
+import com.lifepad.app.data.local.entity.HashtagUsageName
 import com.lifepad.app.data.local.entity.ItemType
 import kotlinx.coroutines.flow.Flow
 
@@ -72,6 +73,14 @@ interface HashtagDao {
         WHERE hashtag_usage.itemType = :itemType AND hashtag_usage.itemId = :itemId
     """)
     fun observeHashtagsForItem(itemType: ItemType, itemId: Long): Flow<List<HashtagEntity>>
+
+    @Query("""
+        SELECT hu.itemId AS itemId, h.name AS name
+        FROM hashtag_usage hu
+        INNER JOIN hashtags h ON h.id = hu.hashtagId
+        WHERE hu.itemType = :itemType
+    """)
+    fun observeHashtagNamesForItemType(itemType: ItemType): Flow<List<HashtagUsageName>>
 
     // Cross-module queries
     @Query("""

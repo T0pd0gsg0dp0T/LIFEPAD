@@ -38,6 +38,7 @@ import com.lifepad.app.components.EmotionFrequencyChart
 import com.lifepad.app.components.MoodCalendar
 import com.lifepad.app.components.MoodDistributionChart
 import com.lifepad.app.components.MoodLineChart
+import java.util.Locale
 import com.lifepad.app.components.TrapFrequencyChart
 import com.lifepad.app.components.getMoodEmoji
 
@@ -103,7 +104,9 @@ fun MoodStatsScreen(
                 ) {
                     StatItem(
                         label = "Average",
-                        value = if (uiState.entryCount > 0) String.format("%.1f", uiState.averageMood) else "-"
+                        value = if (uiState.entryCount > 0)
+                            String.format(Locale.getDefault(), "%.1f", uiState.averageMood)
+                        else "-"
                     )
                     StatItem(
                         label = "Entries",

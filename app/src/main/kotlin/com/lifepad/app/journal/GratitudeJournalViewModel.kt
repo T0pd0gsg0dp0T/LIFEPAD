@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lifepad.app.data.local.entity.JournalEntryEntity
 import com.lifepad.app.data.repository.JournalRepository
+import com.lifepad.app.data.repository.ReminderRepository
+import com.lifepad.app.data.local.entity.ReminderEntity
 import com.lifepad.app.domain.cbt.GratitudeJournalData
 import com.lifepad.app.domain.cbt.StructuredDataSerializer
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,13 +29,16 @@ import kotlinx.coroutines.launch
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
+    val showReminderDialog: Boolean = false,
+    val reminders: List<ReminderEntity> = emptyList(),
     val errorMessage: String? = null
 )
 
 @HiltViewModel
 class GratitudeJournalViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val journalRepository: JournalRepository
+    private val journalRepository: JournalRepository,
+    private val reminderRepository: ReminderRepository
 ) : ViewModel() {
     private val entryId: Long? = savedStateHandle.get<Long>("entryId")?.takeIf { it != 0L }
 
@@ -42,6 +47,11 @@ class GratitudeJournalViewModel @Inject constructor(
 
     init {
         loadEntry()
+        viewModelScope.launch {
+            reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.GRATITUDE_ID).collect { reminders ->
+                _uiState.update { it.copy(reminders = reminders) }
+            }
+        }
     }
 
     private fun loadEntry() {
@@ -81,6 +91,27 @@ class GratitudeJournalViewModel @Inject constructor(
     fun onWhyItMatteredChange(text: String) { _uiState.update { it.copy(whyItMattered = text) } }
     fun onWhoHelpedChange(text: String) { _uiState.update { it.copy(whoHelped = text) } }
     fun onMoodChange(mood: Int) { _uiState.update { it.copy(mood = mood) } }
+
+    fun toggleReminderDialog() {
+        _uiState.update { it.copy(showReminderDialog = !it.showReminderDialog) }
+    }
+
+    fun saveReminder(title: String, message: String, triggerTime: Long, repeatInterval: Long) {
+        viewModelScope.launch {
+            val existing = _uiState.value.reminders
+            existing.forEach { reminderRepository.delete(it.id) }
+            val reminder = ReminderEntity(
+                title = title,
+                message = message,
+                triggerTime = triggerTime,
+                repeatInterval = repeatInterval,
+                linkedItemType = JournalTemplateReminders.ITEM_TYPE,
+                linkedItemId = JournalTemplateReminders.GRATITUDE_ID
+            )
+            reminderRepository.save(reminder)
+            _uiState.update { it.copy(showReminderDialog = false) }
+        }
+    }
 
     fun saveEntry() {
         viewModelScope.launch {
@@ -125,4 +156,5 @@ class GratitudeJournalViewModel @Inject constructor(
     }
 
     fun clearError() { _uiState.update { it.copy(errorMessage = null) } }
+
 }

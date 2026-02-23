@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lifepad.app.data.local.entity.JournalEntryEntity
 import com.lifepad.app.data.repository.JournalRepository
+import com.lifepad.app.data.repository.ReminderRepository
+import com.lifepad.app.data.local.entity.ReminderEntity
 import com.lifepad.app.domain.cbt.CheckInJournalData
 import com.lifepad.app.domain.cbt.StructuredDataSerializer
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,13 +27,16 @@ data class CheckInJournalUiState(
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
+    val showReminderDialog: Boolean = false,
+    val reminders: List<ReminderEntity> = emptyList(),
     val errorMessage: String? = null
 )
 
 @HiltViewModel
 class CheckInJournalViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val journalRepository: JournalRepository
+    private val journalRepository: JournalRepository,
+    private val reminderRepository: ReminderRepository
 ) : ViewModel() {
     private val entryId: Long? = savedStateHandle.get<Long>("entryId")?.takeIf { it != 0L }
 
@@ -40,6 +45,11 @@ class CheckInJournalViewModel @Inject constructor(
 
     init {
         loadEntry()
+        viewModelScope.launch {
+            reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.CHECK_IN_ID).collect { reminders ->
+                _uiState.update { it.copy(reminders = reminders) }
+            }
+        }
     }
 
     private fun loadEntry() {
@@ -75,6 +85,27 @@ class CheckInJournalViewModel @Inject constructor(
     fun onEnergyChange(value: Int) { _uiState.update { it.copy(energy = value.coerceIn(0, 100)) } }
     fun onStressChange(value: Int) { _uiState.update { it.copy(stress = value.coerceIn(0, 100)) } }
     fun onNotesChange(text: String) { _uiState.update { it.copy(notes = text) } }
+
+    fun toggleReminderDialog() {
+        _uiState.update { it.copy(showReminderDialog = !it.showReminderDialog) }
+    }
+
+    fun saveReminder(title: String, message: String, triggerTime: Long, repeatInterval: Long) {
+        viewModelScope.launch {
+            val existing = _uiState.value.reminders
+            existing.forEach { reminderRepository.delete(it.id) }
+            val reminder = ReminderEntity(
+                title = title,
+                message = message,
+                triggerTime = triggerTime,
+                repeatInterval = repeatInterval,
+                linkedItemType = JournalTemplateReminders.ITEM_TYPE,
+                linkedItemId = JournalTemplateReminders.CHECK_IN_ID
+            )
+            reminderRepository.save(reminder)
+            _uiState.update { it.copy(showReminderDialog = false) }
+        }
+    }
 
     fun saveEntry() {
         viewModelScope.launch {
@@ -116,4 +147,5 @@ class CheckInJournalViewModel @Inject constructor(
     }
 
     fun clearError() { _uiState.update { it.copy(errorMessage = null) } }
+
 }

@@ -234,6 +234,14 @@ private fun PinContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
+                .testTag(
+                    when (submitLabel) {
+                        "Next" -> "pin_next"
+                        "Confirm" -> "pin_confirm"
+                        "Unlock" -> "pin_unlock"
+                        else -> "pin_submit"
+                    }
+                )
         ) {
             Text(submitLabel)
         }

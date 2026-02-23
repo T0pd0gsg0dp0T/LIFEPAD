@@ -37,8 +37,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lifepad.app.components.ReminderDialog
+import com.lifepad.app.components.RepeatOption
 import com.lifepad.app.security.PinLockScreen
 import com.lifepad.app.security.PinSetupScreen
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private enum class SettingsStage {
     DEFAULT,
@@ -56,6 +61,10 @@ fun SettingsScreen(
     var stage by rememberSaveable { mutableStateOf(SettingsStage.DEFAULT) }
     var showFinancePicker by rememberSaveable { mutableStateOf(false) }
     var showMoodPicker by rememberSaveable { mutableStateOf(false) }
+    var showMoodPeriodPicker by rememberSaveable { mutableStateOf(false) }
+    var showCheckInReminderDialog by rememberSaveable { mutableStateOf(false) }
+    var showGratitudeReminderDialog by rememberSaveable { mutableStateOf(false) }
+    var showReflectionReminderDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.refreshPinState()
@@ -110,6 +119,48 @@ fun SettingsScreen(
                                 title = "Mood card",
                                 value = uiState.moodWidget.label,
                                 onClick = { showMoodPicker = true }
+                            )
+                            SettingsRow(
+                                title = "Mood card range",
+                                value = uiState.moodWidgetPeriod.label,
+                                onClick = { showMoodPeriodPicker = true }
+                            )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            RowWithIcon(
+                                icon = { Icon(Icons.Default.BarChart, contentDescription = null) },
+                                title = "Reminders"
+                            )
+                            ReminderRow(
+                                title = "Daily check-in",
+                                value = formatReminderValue(uiState.checkInReminders.firstOrNull()),
+                                onClick = { showCheckInReminderDialog = true },
+                                onClear = if (uiState.checkInReminders.isNotEmpty()) viewModel::clearCheckInReminder else null
+                            )
+                            ReminderRow(
+                                title = "Daily gratitude",
+                                value = formatReminderValue(uiState.gratitudeReminders.firstOrNull()),
+                                onClick = { showGratitudeReminderDialog = true },
+                                onClear = if (uiState.gratitudeReminders.isNotEmpty()) viewModel::clearGratitudeReminder else null
+                            )
+                            ReminderRow(
+                                title = "Daily reflection",
+                                value = formatReminderValue(uiState.reflectionReminders.firstOrNull()),
+                                onClick = { showReflectionReminderDialog = true },
+                                onClear = if (uiState.reflectionReminders.isNotEmpty()) viewModel::clearReflectionReminder else null
                             )
                         }
                     }
@@ -197,6 +248,64 @@ fun SettingsScreen(
             onDismiss = { showMoodPicker = false }
         )
     }
+
+    if (showMoodPeriodPicker) {
+        SettingsPickerDialog(
+            title = "Mood card range",
+            options = MoodWidgetPeriod.entries,
+            selected = uiState.moodWidgetPeriod,
+            onSelect = {
+                viewModel.setMoodWidgetPeriod(it)
+                showMoodPeriodPicker = false
+            },
+            onDismiss = { showMoodPeriodPicker = false }
+        )
+    }
+
+    if (showCheckInReminderDialog) {
+        val reminder = uiState.checkInReminders.firstOrNull()
+        ReminderDialog(
+            onDismiss = { showCheckInReminderDialog = false },
+            onConfirm = { title, message, triggerTime, repeatInterval ->
+                viewModel.saveCheckInReminder(title, message, triggerTime, repeatInterval)
+                showCheckInReminderDialog = false
+            },
+            initialTitle = reminder?.title ?: "Daily Check-in",
+            initialMessage = reminder?.message ?: "",
+            initialRepeatOption = repeatOptionForInterval(reminder?.repeatInterval),
+            initialTriggerTime = reminder?.triggerTime
+        )
+    }
+
+    if (showGratitudeReminderDialog) {
+        val reminder = uiState.gratitudeReminders.firstOrNull()
+        ReminderDialog(
+            onDismiss = { showGratitudeReminderDialog = false },
+            onConfirm = { title, message, triggerTime, repeatInterval ->
+                viewModel.saveGratitudeReminder(title, message, triggerTime, repeatInterval)
+                showGratitudeReminderDialog = false
+            },
+            initialTitle = reminder?.title ?: "Daily Gratitude",
+            initialMessage = reminder?.message ?: "",
+            initialRepeatOption = repeatOptionForInterval(reminder?.repeatInterval),
+            initialTriggerTime = reminder?.triggerTime
+        )
+    }
+
+    if (showReflectionReminderDialog) {
+        val reminder = uiState.reflectionReminders.firstOrNull()
+        ReminderDialog(
+            onDismiss = { showReflectionReminderDialog = false },
+            onConfirm = { title, message, triggerTime, repeatInterval ->
+                viewModel.saveReflectionReminder(title, message, triggerTime, repeatInterval)
+                showReflectionReminderDialog = false
+            },
+            initialTitle = reminder?.title ?: "Daily Reflection",
+            initialMessage = reminder?.message ?: "",
+            initialRepeatOption = repeatOptionForInterval(reminder?.repeatInterval),
+            initialTriggerTime = reminder?.triggerTime
+        )
+    }
 }
 
 @Composable
@@ -236,6 +345,54 @@ private fun SettingsRow(
 }
 
 @Composable
+private fun ReminderRow(
+    title: String,
+    value: String,
+    onClick: () -> Unit,
+    onClear: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(text = value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (onClear != null) {
+            TextButton(onClick = onClear) {
+                Text("Clear")
+            }
+        }
+    }
+}
+
+private fun formatReminderValue(reminder: com.lifepad.app.data.local.entity.ReminderEntity?): String {
+    if (reminder == null) return "Not set"
+    val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(reminder.triggerTime))
+    val repeat = when (repeatOptionForInterval(reminder.repeatInterval)) {
+        RepeatOption.DAILY -> "Daily"
+        RepeatOption.WEEKLY -> "Weekly"
+        RepeatOption.MONTHLY -> "Monthly"
+        else -> "One-time"
+    }
+    return "$repeat at $time"
+}
+
+private fun repeatOptionForInterval(interval: Long?): RepeatOption {
+    return when (interval) {
+        RepeatOption.DAILY.intervalMs -> RepeatOption.DAILY
+        RepeatOption.WEEKLY.intervalMs -> RepeatOption.WEEKLY
+        RepeatOption.MONTHLY.intervalMs -> RepeatOption.MONTHLY
+        else -> RepeatOption.NONE
+    }
+}
+
+@Composable
 private fun <T> SettingsPickerDialog(
     title: String,
     options: List<T>,
@@ -261,6 +418,7 @@ private fun <T> SettingsPickerDialog(
                             text = when (option) {
                                 is FinanceWidget -> option.label
                                 is MoodWidget -> option.label
+                                is MoodWidgetPeriod -> option.label
                                 else -> option.name
                             },
                             style = MaterialTheme.typography.bodyLarge
