@@ -132,6 +132,8 @@ enum class FinanceWidget(val label: String) {
 
 enum class MoodWidget(val label: String) {
     MOOD_LINE("Mood Trend"),
+    MOOD_COMPARE_WEEK("Mood Compare (Week)"),
+    MOOD_COMPARE_MONTH("Mood Compare (Month)"),
     MOOD_CALENDAR("Mood Calendar"),
     MOOD_DISTRIBUTION("Mood Distribution"),
     MOOD_TIME_OF_DAY("Mood by Time of Day"),

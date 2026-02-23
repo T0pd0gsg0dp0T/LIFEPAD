@@ -51,6 +51,8 @@ import com.lifepad.app.components.MoodDistributionChart
 import com.lifepad.app.components.MoodTimeOfDayChart
 import com.lifepad.app.components.EmotionFrequencyChart
 import com.lifepad.app.components.TrapFrequencyChart
+import com.lifepad.app.dashboard.PeriodComparison
+import com.lifepad.app.dashboard.PeriodSummary
 import com.lifepad.app.components.IncomeExpenseBarChart
 import com.lifepad.app.components.CashflowLineChart
 import com.lifepad.app.components.NetWorthLineChart
@@ -184,6 +186,22 @@ fun DashboardScreen(
                                 EmptyCardText("No mood entries yet")
                             } else {
                                 MoodLineChart(dataPoints = uiState.moodLinePoints)
+                            }
+                        }
+                        MoodWidget.MOOD_COMPARE_WEEK -> {
+                            val comparison = uiState.weekComparison
+                            if (comparison == null) {
+                                EmptyCardText("No mood entries yet")
+                            } else {
+                                ComparisonContent(comparison = comparison)
+                            }
+                        }
+                        MoodWidget.MOOD_COMPARE_MONTH -> {
+                            val comparison = uiState.monthComparison
+                            if (comparison == null) {
+                                EmptyCardText("No mood entries yet")
+                            } else {
+                                ComparisonContent(comparison = comparison)
                             }
                         }
                         MoodWidget.MOOD_CALENDAR -> {
@@ -353,6 +371,46 @@ fun DashboardScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun ComparisonContent(
+    comparison: PeriodComparison
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ComparisonColumn(label = comparison.labelCurrent, summary = comparison.current, modifier = Modifier.weight(1f))
+        ComparisonColumn(label = comparison.labelPrevious, summary = comparison.previous, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun ComparisonColumn(
+    label: String,
+    summary: PeriodSummary,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = if (summary.entryCount > 0)
+                "Avg: ${String.format(Locale.getDefault(), "%.1f", summary.averageMood)}"
+            else "No entries",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (summary.trendData.isNotEmpty()) {
+            MoodLineChart(dataPoints = summary.trendData)
+        }
+        if (summary.distribution.isNotEmpty()) {
+            MoodDistributionChart(distribution = summary.distribution)
+        }
+        if (summary.timeOfDay.isNotEmpty()) {
+            MoodTimeOfDayChart(entries = summary.timeOfDay)
+        }
     }
 }
 
