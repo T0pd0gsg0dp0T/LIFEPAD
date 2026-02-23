@@ -75,11 +75,13 @@ fun IncomeExpenseBarChart(
                 color = 0xFF00FF41.toInt()
                 valueTextSize = 9f
                 valueTextColor = 0xFFCAC4D0.toInt()
+                valueFormatter = CompactValueFormatter()
             }
             val expenseDataSet = BarDataSet(expenseEntries, "Expenses").apply {
                 color = 0xFFFF5252.toInt()
                 valueTextSize = 9f
                 valueTextColor = 0xFFCAC4D0.toInt()
+                valueFormatter = CompactValueFormatter()
             }
 
             val labels = data.map { it.label }

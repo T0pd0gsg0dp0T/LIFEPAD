@@ -78,6 +78,7 @@ fun MoodDistributionChart(
                 setDrawValues(true)
                 valueTextSize = 10f
                 valueTextColor = 0xFFCAC4D0.toInt()
+                valueFormatter = CompactValueFormatter()
             }
 
             val labels = (0..10).map { if (it == 0) "" else it.toString() }

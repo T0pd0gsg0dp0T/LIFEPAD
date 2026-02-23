@@ -13,8 +13,6 @@ import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
-import com.github.mikephil.charting.formatter.ValueFormatter
-import java.util.Locale
 
 data class TimeOfDayMoodEntry(
     val label: String,
@@ -73,11 +71,7 @@ fun MoodTimeOfDayChart(
                 setDrawValues(true)
                 valueTextSize = 10f
                 valueTextColor = 0xFFCAC4D0.toInt()
-                valueFormatter = object : ValueFormatter() {
-                    override fun getBarLabel(barEntry: BarEntry): String {
-                        return String.format(Locale.getDefault(), "%.1f", barEntry.y)
-                    }
-                }
+                valueFormatter = CompactValueFormatter()
             }
 
             chart.xAxis.valueFormatter = IndexAxisValueFormatter(entries.map { it.label })

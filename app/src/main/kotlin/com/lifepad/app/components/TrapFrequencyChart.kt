@@ -80,6 +80,7 @@ fun TrapFrequencyChart(
                 setDrawValues(true)
                 valueTextSize = 10f
                 valueTextColor = 0xFFCAC4D0.toInt()
+                valueFormatter = CompactValueFormatter()
             }
 
             chart.xAxis.valueFormatter = IndexAxisValueFormatter(labels)
