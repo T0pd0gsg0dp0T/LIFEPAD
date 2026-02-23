@@ -38,9 +38,12 @@ import com.lifepad.app.components.EmotionFrequencyChart
 import com.lifepad.app.components.MoodCalendar
 import com.lifepad.app.components.MoodDistributionChart
 import com.lifepad.app.components.MoodLineChart
+import com.lifepad.app.components.MoodTimeOfDayChart
 import java.util.Locale
 import com.lifepad.app.components.TrapFrequencyChart
 import com.lifepad.app.components.getMoodEmoji
+import com.lifepad.app.journal.PeriodComparison
+import com.lifepad.app.journal.PeriodSummary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -182,6 +185,16 @@ fun MoodStatsScreen(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                uiState.weekComparison?.let { comparison ->
+                    ComparisonSection(title = "Week vs Last Week", comparison = comparison)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                uiState.monthComparison?.let { comparison ->
+                    ComparisonSection(title = "Month vs Last Month", comparison = comparison)
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
@@ -421,6 +434,62 @@ fun MoodStatsScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonSection(
+    title: String,
+    comparison: PeriodComparison
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ComparisonColumn(label = comparison.labelCurrent, summary = comparison.current)
+                ComparisonColumn(label = comparison.labelPrevious, summary = comparison.previous)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonColumn(
+    label: String,
+    summary: PeriodSummary,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = if (summary.entryCount > 0)
+                "Avg: ${String.format(Locale.getDefault(), "%.1f", summary.averageMood)}"
+            else "No entries",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (summary.trendData.isNotEmpty()) {
+            MoodLineChart(dataPoints = summary.trendData)
+        }
+        if (summary.distribution.isNotEmpty()) {
+            MoodDistributionChart(distribution = summary.distribution)
+        }
+        if (summary.timeOfDay.isNotEmpty()) {
+            MoodTimeOfDayChart(entries = summary.timeOfDay)
         }
     }
 }

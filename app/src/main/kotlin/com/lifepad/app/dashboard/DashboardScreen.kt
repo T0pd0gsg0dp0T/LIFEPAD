@@ -378,12 +378,12 @@ fun DashboardScreen(
 private fun ComparisonContent(
     comparison: PeriodComparison
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        ComparisonColumn(label = comparison.labelCurrent, summary = comparison.current, modifier = Modifier.weight(1f))
-        ComparisonColumn(label = comparison.labelPrevious, summary = comparison.previous, modifier = Modifier.weight(1f))
+        ComparisonColumn(label = comparison.labelCurrent, summary = comparison.current)
+        ComparisonColumn(label = comparison.labelPrevious, summary = comparison.previous)
     }
 }
 
