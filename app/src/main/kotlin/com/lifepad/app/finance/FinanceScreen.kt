@@ -683,7 +683,17 @@ private fun CategoryRow(
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(category.name, style = MaterialTheme.typography.bodyLarge)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                CategoryIcon(
+                    icon = categoryIconForName(category.icon),
+                    tint = IncomeColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(category.name, style = MaterialTheme.typography.bodyLarge)
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
