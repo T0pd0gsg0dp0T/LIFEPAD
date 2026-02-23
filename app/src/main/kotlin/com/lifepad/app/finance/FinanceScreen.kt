@@ -976,7 +976,19 @@ private fun FlowChips(
             FilterChip(
                 selected = selectedIds.contains(category.id),
                 onClick = { onToggle(category) },
-                label = { Text(category.name) }
+                label = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        CategoryIcon(
+                            icon = categoryIconForName(category.icon),
+                            tint = IncomeColor,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(category.name)
+                    }
+                }
             )
         }
     }
