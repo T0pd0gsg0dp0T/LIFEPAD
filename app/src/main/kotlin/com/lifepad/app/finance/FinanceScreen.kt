@@ -673,15 +673,7 @@ private fun CategoryRow(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(Color(category.color), shape = MaterialTheme.shapes.small),
-            contentAlignment = Alignment.Center
-        ) {
-            CategoryIcon(icon = categoryIconForName(category.icon), tint = MaterialTheme.colorScheme.onSurface)
-        }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
