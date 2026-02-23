@@ -271,8 +271,6 @@ fun FinanceScreen(
                     CategoriesTab(
                         uiState = uiState,
                         onEditCategory = onEditCategory,
-                        onArchiveCategory = viewModel::archiveCategory,
-                        onUnarchiveCategory = viewModel::unarchiveCategory,
                         onDeleteCategory = viewModel::deleteCategory,
                         onReorder = viewModel::updateCategoryOrder
                     )
@@ -593,8 +591,6 @@ private fun RecordRow(
 private fun CategoriesTab(
     uiState: FinanceHomeUiState,
     onEditCategory: (Long) -> Unit,
-    onArchiveCategory: (Long) -> Unit,
-    onUnarchiveCategory: (Long) -> Unit,
     onDeleteCategory: (Long) -> Unit,
     onReorder: (List<CategoryEntity>) -> Unit
 ) {
@@ -602,7 +598,6 @@ private fun CategoriesTab(
     val categories = when (selectedFilter) {
         CategoryFilter.EXPENSE -> uiState.categories.filter { it.type == CategoryType.EXPENSE && !it.isArchived }
         CategoryFilter.INCOME -> uiState.categories.filter { it.type == CategoryType.INCOME && !it.isArchived }
-        CategoryFilter.ARCHIVED -> uiState.archivedCategories
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -648,10 +643,8 @@ private fun CategoriesTab(
                                 onReorder(updated)
                             }
                         },
-                        onArchive = { onArchiveCategory(category.id) },
-                        onUnarchive = { onUnarchiveCategory(category.id) },
                         onDelete = { onDeleteCategory(category.id) },
-                        isArchived = selectedFilter == CategoryFilter.ARCHIVED
+                        isArchived = false
                     )
                 }
             }
@@ -667,8 +660,6 @@ private fun CategoryRow(
     onEdit: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onArchive: () -> Unit,
-    onUnarchive: () -> Unit,
     onDelete: () -> Unit,
     isArchived: Boolean
 ) {
@@ -717,23 +708,6 @@ private fun CategoryRow(
                         onEdit()
                     }
                 )
-                if (isArchived) {
-                    DropdownMenuItem(
-                        text = { Text("Restore") },
-                        onClick = {
-                            menuExpanded = false
-                            onUnarchive()
-                        }
-                    )
-                } else {
-                    DropdownMenuItem(
-                        text = { Text("Archive") },
-                        onClick = {
-                            menuExpanded = false
-                            onArchive()
-                        }
-                    )
-                }
                 DropdownMenuItem(
                     text = { Text("Delete") },
                     enabled = !category.isDefault,
@@ -1086,6 +1060,5 @@ private fun groupTransactionsByDay(transactions: List<TransactionEntity>): List<
 
 private enum class CategoryFilter(val label: String) {
     EXPENSE("Expense"),
-    INCOME("Income"),
-    ARCHIVED("Archived")
+    INCOME("Income")
 }
