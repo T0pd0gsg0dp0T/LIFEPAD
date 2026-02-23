@@ -145,19 +145,19 @@ fun SettingsScreen(
                                 title = "Reminders"
                             )
                             ReminderRow(
-                                title = "Daily check-in",
+                                title = "Check-in",
                                 value = formatReminderValue(uiState.checkInReminders.firstOrNull()),
                                 onClick = { showCheckInReminderDialog = true },
                                 onClear = if (uiState.checkInReminders.isNotEmpty()) viewModel::clearCheckInReminder else null
                             )
                             ReminderRow(
-                                title = "Daily gratitude",
+                                title = "Gratitude",
                                 value = formatReminderValue(uiState.gratitudeReminders.firstOrNull()),
                                 onClick = { showGratitudeReminderDialog = true },
                                 onClear = if (uiState.gratitudeReminders.isNotEmpty()) viewModel::clearGratitudeReminder else null
                             )
                             ReminderRow(
-                                title = "Daily reflection",
+                                title = "Reflection",
                                 value = formatReminderValue(uiState.reflectionReminders.firstOrNull()),
                                 onClick = { showReflectionReminderDialog = true },
                                 onClear = if (uiState.reflectionReminders.isNotEmpty()) viewModel::clearReflectionReminder else null
