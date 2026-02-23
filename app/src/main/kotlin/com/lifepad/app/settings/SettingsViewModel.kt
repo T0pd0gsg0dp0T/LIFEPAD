@@ -25,14 +25,26 @@ class SettingsViewModel @Inject constructor(
     private val pinState = MutableStateFlow(securityManager.isPinSet())
 
     val uiState: StateFlow<SettingsUiState> = combine(
-        pinState,
-        settingsRepository.financeWidget,
-        settingsRepository.moodWidget,
-        settingsRepository.moodWidgetPeriod,
-        reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.CHECK_IN_ID),
-        reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.GRATITUDE_ID),
-        reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.REFLECTION_ID)
-    ) { isPinSet, financeWidget, moodWidget, moodWidgetPeriod, checkInReminders, gratitudeReminders, reflectionReminders ->
+        listOf(
+            pinState,
+            settingsRepository.financeWidget,
+            settingsRepository.moodWidget,
+            settingsRepository.moodWidgetPeriod,
+            reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.CHECK_IN_ID),
+            reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.GRATITUDE_ID),
+            reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.REFLECTION_ID)
+        )
+    ) { values ->
+        val isPinSet = values[0] as Boolean
+        val financeWidget = values[1] as FinanceWidget
+        val moodWidget = values[2] as MoodWidget
+        val moodWidgetPeriod = values[3] as MoodWidgetPeriod
+        @Suppress("UNCHECKED_CAST")
+        val checkInReminders = values[4] as List<ReminderEntity>
+        @Suppress("UNCHECKED_CAST")
+        val gratitudeReminders = values[5] as List<ReminderEntity>
+        @Suppress("UNCHECKED_CAST")
+        val reflectionReminders = values[6] as List<ReminderEntity>
         SettingsUiState(
             isPinSet = isPinSet,
             financeWidget = financeWidget,

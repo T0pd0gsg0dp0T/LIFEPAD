@@ -1,6 +1,7 @@
 package com.lifepad.app
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -39,10 +40,12 @@ class MainActivity : ComponentActivity() {
     lateinit var securityManager: SecurityManager
 
     private var appState by mutableStateOf(AppState.UNLOCKED)
+    private var pendingRoute by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         appState = determineAppState()
+        pendingRoute = intent?.getStringExtra(EXTRA_NAV_ROUTE)
         enableEdgeToEdge()
         setContent {
             LifepadTheme {
@@ -86,11 +89,19 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     AppState.UNLOCKED -> {
-                        MainContent()
+                        MainContent(
+                            route = pendingRoute,
+                            onRouteHandled = { pendingRoute = null }
+                        )
                     }
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        pendingRoute = intent.getStringExtra(EXTRA_NAV_ROUTE)
     }
 
     private fun determineAppState(): AppState {
@@ -105,8 +116,17 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun MainContent() {
+    private fun MainContent(
+        route: String?,
+        onRouteHandled: () -> Unit
+    ) {
         val navController = rememberNavController()
+        androidx.compose.runtime.LaunchedEffect(route) {
+            if (!route.isNullOrBlank()) {
+                navController.navigate(route)
+                onRouteHandled()
+            }
+        }
         Scaffold(
             containerColor = Color.Transparent,
         ) { padding ->
@@ -117,5 +137,9 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_NAV_ROUTE = "extra_nav_route"
     }
 }
