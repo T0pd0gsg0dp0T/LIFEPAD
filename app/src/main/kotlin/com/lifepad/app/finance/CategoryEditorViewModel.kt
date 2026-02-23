@@ -120,10 +120,6 @@ class CategoryEditorViewModel @Inject constructor(
 
     fun deleteCategory(onDeleted: () -> Unit) {
         val id = categoryId ?: return
-        if (_uiState.value.isDefault) {
-            _uiState.update { it.copy(errorMessage = "Default categories cannot be deleted") }
-            return
-        }
         viewModelScope.launch {
             try {
                 financeRepository.deleteCategory(id)

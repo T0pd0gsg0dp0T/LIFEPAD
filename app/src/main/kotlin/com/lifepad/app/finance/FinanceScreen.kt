@@ -710,7 +710,6 @@ private fun CategoryRow(
                 )
                 DropdownMenuItem(
                     text = { Text("Delete") },
-                    enabled = !category.isDefault,
                     onClick = {
                         menuExpanded = false
                         onDelete()

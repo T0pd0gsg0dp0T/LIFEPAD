@@ -81,7 +81,7 @@ fun CategoryEditorScreen(
                     }
                 },
                 actions = {
-                    if (uiState.categoryId != null && !uiState.isDefault) {
+                    if (uiState.categoryId != null) {
                         IconButton(onClick = { viewModel.deleteCategory(onNavigateBack) }) {
                             Icon(Icons.Default.Delete, contentDescription = "Delete")
                         }
