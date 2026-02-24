@@ -6,6 +6,8 @@ import com.lifepad.app.data.local.entity.TransactionType
 import com.lifepad.app.data.repository.FinanceRepository
 import com.lifepad.app.data.repository.InsightRepository
 import com.lifepad.app.domain.finance.FinancialInsight
+import com.lifepad.app.domain.finance.InsightSeverity
+import com.lifepad.app.domain.finance.InsightType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -122,14 +124,30 @@ class FinanceStatsViewModel @Inject constructor(
                 emptyList()
             }
 
-            _uiState.update {
-                it.copy(
+            val shouldUseDemo = totalIncome == 0.0 &&
+                totalExpenses == 0.0 &&
+                categorySpending.isEmpty() &&
+                monthlyComparison.isEmpty() &&
+                spendingTrend.isEmpty()
+
+            val resolved = if (shouldUseDemo) {
+                buildDemoStats(period)
+            } else {
+                FinanceStatsUiState(
+                    selectedPeriod = period,
                     totalIncome = totalIncome,
                     totalExpenses = totalExpenses,
                     categorySpending = categorySpending,
                     monthlyComparison = monthlyComparison,
                     spendingTrend = spendingTrend,
                     insights = insights,
+                    isLoading = false
+                )
+            }
+
+            _uiState.update {
+                resolved.copy(
+                    selectedPeriod = period,
                     isLoading = false
                 )
             }
@@ -167,5 +185,88 @@ class FinanceStatsViewModel @Inject constructor(
             )
         }
         return result
+    }
+
+    private fun buildDemoStats(period: FinanceStatsPeriod): FinanceStatsUiState {
+        val monthLabels = buildDemoMonthLabels(period.months)
+        val demoMonthly = monthLabels.mapIndexed { index, label ->
+            val income = 3200f + (index * 180f)
+            val expense = 2100f + (index * 140f)
+            MonthlyComparison(
+                label = label,
+                income = income,
+                expense = expense
+            )
+        }
+        val demoCategorySpending = listOf(
+            CategorySpending("Housing", 1450.0, 38f),
+            CategorySpending("Food", 620.0, 16f),
+            CategorySpending("Transport", 420.0, 11f),
+            CategorySpending("Utilities", 310.0, 8f),
+            CategorySpending("Entertainment", 260.0, 7f),
+            CategorySpending("Other", 770.0, 20f)
+        )
+        val demoTrend = buildDemoTrend()
+        val demoInsights = listOf(
+            FinancialInsight(
+                type = InsightType.SPENDING_TREND,
+                title = "Spending cooled down",
+                body = "Your weekly average dropped 12% compared to the previous period.",
+                severity = InsightSeverity.POSITIVE,
+                value = -12.0
+            ),
+            FinancialInsight(
+                type = InsightType.TOP_CATEGORY,
+                title = "Top category: Housing",
+                body = "Housing is 38% of total spend this period.",
+                severity = InsightSeverity.INFO,
+                value = 38.0
+            ),
+            FinancialInsight(
+                type = InsightType.SAVINGS_ACHIEVED,
+                title = "Savings rate",
+                body = "You saved about $850 this period.",
+                severity = InsightSeverity.POSITIVE,
+                value = 850.0
+            )
+        )
+        return FinanceStatsUiState(
+            selectedPeriod = period,
+            totalIncome = 3650.0,
+            totalExpenses = 2800.0,
+            categorySpending = demoCategorySpending,
+            monthlyComparison = demoMonthly,
+            spendingTrend = demoTrend,
+            insights = demoInsights,
+            isLoading = false
+        )
+    }
+
+    private fun buildDemoMonthLabels(months: Int): List<String> {
+        val labels = mutableListOf<String>()
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.MONTH, -(months - 1))
+        val format = SimpleDateFormat("MMM", Locale.getDefault())
+        repeat(months) {
+            labels.add(format.format(cal.time))
+            cal.add(Calendar.MONTH, 1)
+        }
+        return labels
+    }
+
+    private fun buildDemoTrend(): List<SpendingTrendPoint> {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, -6)
+        val format = SimpleDateFormat("M/d", Locale.getDefault())
+        return (0 until 7).map { index ->
+            val amount = 120f + (index * 35f) + if (index % 2 == 0) 40f else -10f
+            val label = format.format(cal.time)
+            cal.add(Calendar.DAY_OF_YEAR, 1)
+            SpendingTrendPoint(
+                dayIndex = index.toFloat(),
+                amount = amount.coerceAtLeast(40f),
+                label = label
+            )
+        }
     }
 }
