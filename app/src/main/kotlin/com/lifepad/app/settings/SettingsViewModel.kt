@@ -6,6 +6,8 @@ import com.lifepad.app.security.SecurityManager
 import com.lifepad.app.data.local.entity.ReminderEntity
 import com.lifepad.app.data.repository.ReminderRepository
 import com.lifepad.app.journal.JournalTemplateReminders
+import com.lifepad.app.util.BackupManager
+import android.net.Uri
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -19,10 +21,13 @@ import kotlinx.coroutines.flow.SharingStarted
 class SettingsViewModel @Inject constructor(
     private val securityManager: SecurityManager,
     private val settingsRepository: SettingsRepository,
-    private val reminderRepository: ReminderRepository
+    private val reminderRepository: ReminderRepository,
+    private val backupManager: BackupManager
 ) : ViewModel() {
 
     private val pinState = MutableStateFlow(securityManager.isPinSet())
+    private val backupInProgress = MutableStateFlow(false)
+    private val backupResult = MutableStateFlow<BackupResult?>(null)
 
     val uiState: StateFlow<SettingsUiState> = combine(
         listOf(
@@ -68,6 +73,10 @@ class SettingsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SettingsUiState(isPinSet = securityManager.isPinSet())
     )
+
+    val isBackupInProgress: StateFlow<Boolean> = backupInProgress
+
+    val lastBackupResult: StateFlow<BackupResult?> = backupResult
 
     fun refreshPinState() {
         pinState.value = securityManager.isPinSet()
@@ -160,6 +169,27 @@ class SettingsViewModel @Inject constructor(
             uiState.value.reflectionReminders.forEach { reminderRepository.delete(it.id) }
         }
     }
+
+    fun createFullBackup(destination: Uri) {
+        if (backupInProgress.value) return
+        backupInProgress.value = true
+        viewModelScope.launch {
+            val result = backupManager.createFullBackup(destination)
+            backupResult.value = if (result.isSuccess) {
+                BackupResult(success = true, message = "Backup created.")
+            } else {
+                BackupResult(
+                    success = false,
+                    message = "Backup failed: ${result.exceptionOrNull()?.message ?: "Unknown error"}"
+                )
+            }
+            backupInProgress.value = false
+        }
+    }
+
+    fun clearBackupResult() {
+        backupResult.value = null
+    }
 }
 
 data class SettingsUiState(
@@ -173,4 +203,9 @@ data class SettingsUiState(
     val checkInReminders: List<ReminderEntity> = emptyList(),
     val gratitudeReminders: List<ReminderEntity> = emptyList(),
     val reflectionReminders: List<ReminderEntity> = emptyList()
+)
+
+data class BackupResult(
+    val success: Boolean,
+    val message: String
 )
