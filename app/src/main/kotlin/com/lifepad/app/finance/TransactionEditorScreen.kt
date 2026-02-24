@@ -388,14 +388,14 @@ fun TransactionEditorScreen(
                                     modifier = Modifier
                                         .size(32.dp)
                                         .background(
-                                            color = androidx.compose.ui.graphics.Color(category.color),
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
                                             shape = MaterialTheme.shapes.small
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     CategoryIcon(
                                         icon = categoryIconForName(category.icon),
-                                        tint = MaterialTheme.colorScheme.onSurface
+                                        tint = androidx.compose.ui.graphics.Color(category.color)
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))

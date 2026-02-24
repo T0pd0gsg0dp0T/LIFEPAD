@@ -42,7 +42,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
@@ -66,6 +65,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.CategoryIcon
@@ -236,22 +236,50 @@ fun FinanceScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Records") }
+                    text = {
+                        Text(
+                            text = "Records",
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Categories") }
+                    text = {
+                        Text(
+                            text = "Categories",
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("Stats") }
+                    text = {
+                        Text(
+                            text = "Stats",
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
+                        )
+                    }
                 )
                 Tab(
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
-                    text = { Text("Settings") }
+                    text = {
+                        Text(
+                            text = "Settings",
+                            maxLines = 1,
+                            softWrap = false,
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
+                        )
+                    }
                 )
             }
 
@@ -263,7 +291,6 @@ fun FinanceScreen(
                         intervalLabel = intervalLabel,
                         onIntervalChange = { viewModel.setInterval(it) },
                         onCustomRange = { showCustomRangePicker = true },
-                        onSearchQueryChange = viewModel::setSearchQuery,
                         onTransactionClick = onTransactionClick,
                         onTransactionEdit = onEditTransaction,
                         onHashtagClick = { onNavigateToSearch("#$it") }
@@ -333,7 +360,6 @@ private fun RecordsTab(
     intervalLabel: String,
     onIntervalChange: (FinanceIntervalSetting) -> Unit,
     onCustomRange: () -> Unit,
-    onSearchQueryChange: (String) -> Unit,
     onTransactionClick: (Long) -> Unit,
     onTransactionEdit: (Long) -> Unit,
     onHashtagClick: (String) -> Unit
@@ -418,14 +444,6 @@ private fun RecordsTab(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    label = { Text("Search records") },
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
 
@@ -513,14 +531,14 @@ private fun RecordRow(
             modifier = Modifier
                 .size(42.dp)
                 .background(
-                    color = category?.color?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = MaterialTheme.shapes.small
                 ),
             contentAlignment = Alignment.Center
         ) {
             CategoryIcon(
                 icon = categoryIconForName(category?.icon),
-                tint = MaterialTheme.colorScheme.onSurface
+                tint = category?.color?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurface
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
@@ -673,17 +691,17 @@ private fun CategoryRow(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Spacer(modifier = Modifier.width(6.dp))
+        CategoryIcon(
+            icon = categoryIconForName(category.icon),
+            tint = Color(category.color),
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                CategoryIcon(
-                    icon = categoryIconForName(category.icon),
-                    tint = IncomeColor,
-                    modifier = Modifier.size(16.dp)
-                )
                 Text(category.name, style = MaterialTheme.typography.bodyLarge)
             }
             Row(
@@ -985,7 +1003,7 @@ private fun FlowChips(
                     ) {
                         CategoryIcon(
                             icon = categoryIconForName(category.icon),
-                            tint = IncomeColor,
+                            tint = Color(category.color),
                             modifier = Modifier.size(14.dp)
                         )
                         Text(category.name)

@@ -226,12 +226,12 @@ fun CategoryEditorScreen(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .background(Color(uiState.color), shape = MaterialTheme.shapes.small),
+                                .background(MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small),
                             contentAlignment = Alignment.Center
                         ) {
                             CategoryIcon(
                                 icon = categoryIconForName(uiState.icon),
-                                tint = MaterialTheme.colorScheme.onSurface
+                                tint = Color(uiState.color)
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
