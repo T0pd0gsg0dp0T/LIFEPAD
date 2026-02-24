@@ -71,6 +71,8 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isBackupInProgress by viewModel.isBackupInProgress.collectAsStateWithLifecycle()
     val backupResult by viewModel.lastBackupResult.collectAsStateWithLifecycle()
+    val isRestoreInProgress by viewModel.isRestoreInProgress.collectAsStateWithLifecycle()
+    val restoreResult by viewModel.lastRestoreResult.collectAsStateWithLifecycle()
     var stage by rememberSaveable { mutableStateOf(SettingsStage.DEFAULT) }
     var showFinancePicker by rememberSaveable { mutableStateOf(false) }
     var showMoodPicker by rememberSaveable { mutableStateOf(false) }
@@ -79,12 +81,20 @@ fun SettingsScreen(
     var showCheckInReminderDialog by rememberSaveable { mutableStateOf(false) }
     var showGratitudeReminderDialog by rememberSaveable { mutableStateOf(false) }
     var showReflectionReminderDialog by rememberSaveable { mutableStateOf(false) }
+    var showRestoreConfirm by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val backupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         if (uri != null) {
             viewModel.createFullBackup(uri)
+        }
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.restoreFullBackup(uri)
         }
     }
 
@@ -95,6 +105,12 @@ fun SettingsScreen(
         backupResult?.let {
             snackbarHostState.showSnackbar(it.message)
             viewModel.clearBackupResult()
+        }
+    }
+    LaunchedEffect(restoreResult) {
+        restoreResult?.let {
+            snackbarHostState.showSnackbar(it.message)
+            viewModel.clearRestoreResult()
         }
     }
 
@@ -205,6 +221,29 @@ fun SettingsScreen(
                                         )
                                     } else {
                                         Text("Create")
+                                    }
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isRestoreInProgress) "Restoring backup..." else "Restore backup",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Button(
+                                    onClick = { showRestoreConfirm = true },
+                                    enabled = !isRestoreInProgress
+                                ) {
+                                    if (isRestoreInProgress) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.height(18.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Text("Restore")
                                     }
                                 }
                             }
@@ -460,6 +499,31 @@ fun SettingsScreen(
             initialMessage = reminder?.message ?: "",
             initialRepeatOption = repeatOptionForInterval(reminder?.repeatInterval),
             initialTriggerTime = reminder?.triggerTime
+        )
+    }
+
+    if (showRestoreConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRestoreConfirm = false },
+            title = { Text("Restore Backup") },
+            text = {
+                Text("Restoring will replace your current data and attachments. Continue?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRestoreConfirm = false
+                        restoreLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
+                    }
+                ) {
+                    Text("Restore")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestoreConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 }

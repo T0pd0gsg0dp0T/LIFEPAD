@@ -28,6 +28,8 @@ class SettingsViewModel @Inject constructor(
     private val pinState = MutableStateFlow(securityManager.isPinSet())
     private val backupInProgress = MutableStateFlow(false)
     private val backupResult = MutableStateFlow<BackupResult?>(null)
+    private val restoreInProgress = MutableStateFlow(false)
+    private val restoreResult = MutableStateFlow<RestoreResult?>(null)
 
     val uiState: StateFlow<SettingsUiState> = combine(
         listOf(
@@ -77,6 +79,10 @@ class SettingsViewModel @Inject constructor(
     val isBackupInProgress: StateFlow<Boolean> = backupInProgress
 
     val lastBackupResult: StateFlow<BackupResult?> = backupResult
+
+    val isRestoreInProgress: StateFlow<Boolean> = restoreInProgress
+
+    val lastRestoreResult: StateFlow<RestoreResult?> = restoreResult
 
     fun refreshPinState() {
         pinState.value = securityManager.isPinSet()
@@ -190,6 +196,27 @@ class SettingsViewModel @Inject constructor(
     fun clearBackupResult() {
         backupResult.value = null
     }
+
+    fun restoreFullBackup(source: Uri) {
+        if (restoreInProgress.value) return
+        restoreInProgress.value = true
+        viewModelScope.launch {
+            val result = backupManager.restoreFullBackup(source)
+            restoreResult.value = if (result.isSuccess) {
+                RestoreResult(success = true, message = "Restore completed. Please restart the app.")
+            } else {
+                RestoreResult(
+                    success = false,
+                    message = "Restore failed: ${result.exceptionOrNull()?.message ?: "Unknown error"}"
+                )
+            }
+            restoreInProgress.value = false
+        }
+    }
+
+    fun clearRestoreResult() {
+        restoreResult.value = null
+    }
 }
 
 data class SettingsUiState(
@@ -206,6 +233,11 @@ data class SettingsUiState(
 )
 
 data class BackupResult(
+    val success: Boolean,
+    val message: String
+)
+
+data class RestoreResult(
     val success: Boolean,
     val message: String
 )
