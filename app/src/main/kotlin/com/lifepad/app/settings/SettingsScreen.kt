@@ -45,9 +45,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.os.Process
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lifepad.app.MainActivity
 import com.lifepad.app.components.ReminderDialog
 import com.lifepad.app.components.RepeatOption
 import com.lifepad.app.security.PinLockScreen
@@ -83,6 +87,7 @@ fun SettingsScreen(
     var showReflectionReminderDialog by rememberSaveable { mutableStateOf(false) }
     var showRestoreConfirm by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     val backupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
@@ -110,6 +115,14 @@ fun SettingsScreen(
     LaunchedEffect(restoreResult) {
         restoreResult?.let {
             snackbarHostState.showSnackbar(it.message)
+            if (it.success) {
+                kotlinx.coroutines.delay(600)
+                val intent = Intent(context, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                }
+                context.startActivity(intent)
+                Process.killProcess(Process.myPid())
+            }
             viewModel.clearRestoreResult()
         }
     }
