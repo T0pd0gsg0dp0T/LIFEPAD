@@ -162,7 +162,10 @@ fun CategoryEditorScreen(
                         ),
                         onClick = { viewModel.updateIcon(name) }
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
                             CategoryIcon(
                                 icon = icon,
                                 tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
