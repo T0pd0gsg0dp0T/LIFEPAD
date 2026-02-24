@@ -40,6 +40,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -253,7 +255,7 @@ fun DashboardScreen(
                         .testTag("dashboard_notes_nav")
                         .clickable(onClick = onNavigateToNotes),
                     colors = CardDefaults.cardColors(
-                        containerColor = NotepadPrimary.copy(alpha = 0.2f)
+                        containerColor = lerp(NotepadPrimary, Color.Black, 0.35f)
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                 ) {
@@ -421,10 +423,12 @@ private fun DashboardSection(
     seeAllTag: String? = null,
     content: @Composable () -> Unit
 ) {
+    val cardColor = lerp(MaterialTheme.colorScheme.surfaceVariant, Color.Black, 0.2f)
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
