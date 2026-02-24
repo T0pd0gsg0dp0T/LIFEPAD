@@ -293,10 +293,7 @@ fun FinanceScreen(
                     )
                 }
                 2 -> {
-                    StatsTab(
-                        uiState = uiState,
-                        onNavigateToStats = onNavigateToStats
-                    )
+                    StatsTab()
                 }
             }
         }
@@ -733,29 +730,16 @@ private fun CategoryRow(
 
 @Composable
 private fun StatsTab(
-    uiState: FinanceHomeUiState,
-    onNavigateToStats: () -> Unit
+    viewModel: FinanceStatsViewModel = hiltViewModel()
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onNavigateToStats),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Full Statistics", style = MaterialTheme.typography.titleMedium)
-                    Text("All finance stats and analytics")
-                }
-                Icon(Icons.AutoMirrored.Filled.ArrowRight, contentDescription = "Open")
-            }
-        }
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    FinanceStatsContent(
+        uiState = uiState,
+        onPeriodChange = viewModel::onPeriodChange,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    )
 }
 
 

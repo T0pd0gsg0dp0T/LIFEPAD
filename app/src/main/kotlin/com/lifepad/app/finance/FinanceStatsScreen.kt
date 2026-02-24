@@ -49,7 +49,6 @@ fun FinanceStatsScreen(
     viewModel: FinanceStatsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val currencyFormat = NumberFormat.getCurrencyInstance()
 
     Scaffold(
         topBar = {
@@ -63,194 +62,208 @@ fun FinanceStatsScreen(
             )
         }
     ) { padding ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+        FinanceStatsContent(
+            uiState = uiState,
+            onPeriodChange = viewModel::onPeriodChange,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+        )
+    }
+}
+
+@Composable
+fun FinanceStatsContent(
+    uiState: FinanceStatsUiState,
+    onPeriodChange: (FinanceStatsPeriod) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val currencyFormat = NumberFormat.getCurrencyInstance()
+
+    if (uiState.isLoading) {
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    } else {
+        Column(
+            modifier = modifier.verticalScroll(rememberScrollState())
+        ) {
+            // Period selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
-            ) {
-                // Period selector
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FinanceStatsPeriod.entries.forEach { period ->
-                        FilterChip(
-                            selected = uiState.selectedPeriod == period,
-                            onClick = { viewModel.onPeriodChange(period) },
-                            label = { Text(period.label) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Summary
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = currencyFormat.format(uiState.totalIncome),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = IncomeColor
-                        )
-                        Text(
-                            text = "Income",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = currencyFormat.format(uiState.totalExpenses),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = ExpenseColor
-                        )
-                        Text(
-                            text = "Expenses",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Spending by category pie chart
-                if (uiState.categorySpending.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Spending by Category",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            SpendingPieChart(
-                                data = uiState.categorySpending.map {
-                                    it.categoryName to it.percentage
-                                }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Income vs Expenses bar chart
-                if (uiState.monthlyComparison.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Income vs Expenses",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            IncomeExpenseBarChart(
-                                data = uiState.monthlyComparison.map {
-                                    IncomeExpenseEntry(
-                                        label = it.label,
-                                        income = it.income,
-                                        expense = it.expense
-                                    )
-                                }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Spending trend line chart
-                if (uiState.spendingTrend.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Spending Trend",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            SpendingTrendChart(
-                                dataPoints = uiState.spendingTrend.map {
-                                    TrendPoint(
-                                        index = it.dayIndex,
-                                        value = it.amount,
-                                        label = it.label
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Insights section
-                if (uiState.insights.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "Insights",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                FinanceStatsPeriod.entries.forEach { period ->
+                    FilterChip(
+                        selected = uiState.selectedPeriod == period,
+                        onClick = { onPeriodChange(period) },
+                        label = { Text(period.label) },
+                        modifier = Modifier.weight(1f)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
 
-                    uiState.insights.forEach { insight ->
-                        InsightCard(insight = insight, compact = false)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Summary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = currencyFormat.format(uiState.totalIncome),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = IncomeColor
+                    )
+                    Text(
+                        text = "Income",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = currencyFormat.format(uiState.totalExpenses),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = ExpenseColor
+                    )
+                    Text(
+                        text = "Expenses",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Spending by category pie chart
+            if (uiState.categorySpending.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Spending by Category",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
+                        SpendingPieChart(
+                            data = uiState.categorySpending.map {
+                                it.categoryName to it.percentage
+                            }
+                        )
                     }
                 }
 
-                if (uiState.categorySpending.isEmpty() && uiState.monthlyComparison.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "No data yet",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Add transactions to see financial statistics",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Income vs Expenses bar chart
+            if (uiState.monthlyComparison.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Income vs Expenses",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        IncomeExpenseBarChart(
+                            data = uiState.monthlyComparison.map {
+                                IncomeExpenseEntry(
+                                    label = it.label,
+                                    income = it.income,
+                                    expense = it.expense
+                                )
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Spending trend line chart
+            if (uiState.spendingTrend.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Spending Trend",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SpendingTrendChart(
+                            dataPoints = uiState.spendingTrend.map {
+                                TrendPoint(
+                                    index = it.dayIndex,
+                                    value = it.amount,
+                                    label = it.label
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Insights section
+            if (uiState.insights.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Insights",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                uiState.insights.forEach { insight ->
+                    InsightCard(insight = insight, compact = false)
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            if (uiState.categorySpending.isEmpty() && uiState.monthlyComparison.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "No data yet",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Add transactions to see financial statistics",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
