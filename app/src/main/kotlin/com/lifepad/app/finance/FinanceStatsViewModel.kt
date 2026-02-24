@@ -124,11 +124,13 @@ class FinanceStatsViewModel @Inject constructor(
                 emptyList()
             }
 
+            val hasMonthlyData = monthlyComparison.any { it.income > 0f || it.expense > 0f }
             val shouldUseDemo = totalIncome == 0.0 &&
                 totalExpenses == 0.0 &&
                 categorySpending.isEmpty() &&
-                monthlyComparison.isEmpty() &&
-                spendingTrend.isEmpty()
+                spendingTrend.isEmpty() &&
+                insights.isEmpty() &&
+                !hasMonthlyData
 
             val resolved = if (shouldUseDemo) {
                 buildDemoStats(period)
