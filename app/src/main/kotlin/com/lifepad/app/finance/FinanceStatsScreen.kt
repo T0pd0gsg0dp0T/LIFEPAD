@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -65,6 +66,7 @@ fun FinanceStatsScreen(
         FinanceStatsContent(
             uiState = uiState,
             onPeriodChange = viewModel::onPeriodChange,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -77,6 +79,7 @@ fun FinanceStatsScreen(
 fun FinanceStatsContent(
     uiState: FinanceStatsUiState,
     onPeriodChange: (FinanceStatsPeriod) -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val currencyFormat = NumberFormat.getCurrencyInstance()
@@ -92,6 +95,15 @@ fun FinanceStatsContent(
         Column(
             modifier = modifier.verticalScroll(rememberScrollState())
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh stats")
+                }
+            }
+
             // Period selector
             Row(
                 modifier = Modifier.fillMaxWidth(),

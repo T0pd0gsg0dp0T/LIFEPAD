@@ -10,6 +10,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -65,10 +69,15 @@ class FinanceStatsViewModel @Inject constructor(
 
     init {
         loadStats()
+        observeTransactions()
     }
 
     fun onPeriodChange(period: FinanceStatsPeriod) {
         _uiState.update { it.copy(selectedPeriod = period) }
+        loadStats()
+    }
+
+    fun refresh() {
         loadStats()
     }
 
@@ -133,6 +142,21 @@ class FinanceStatsViewModel @Inject constructor(
                     isLoading = false
                 )
             }
+        }
+    }
+
+    private fun observeTransactions() {
+        viewModelScope.launch {
+            financeRepository.getAllTransactions()
+                .map { transactions ->
+                    val lastUpdated = transactions.maxOfOrNull { it.updatedAt } ?: 0L
+                    lastUpdated to transactions.size
+                }
+                .distinctUntilChanged()
+                .debounce(300)
+                .collectLatest {
+                    loadStats()
+                }
         }
     }
 

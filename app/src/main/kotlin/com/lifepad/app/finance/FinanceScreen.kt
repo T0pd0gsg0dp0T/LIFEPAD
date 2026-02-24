@@ -736,6 +736,7 @@ private fun StatsTab(
     FinanceStatsContent(
         uiState = uiState,
         onPeriodChange = viewModel::onPeriodChange,
+        onRefresh = viewModel::refresh,
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
