@@ -255,7 +255,7 @@ fun DashboardScreen(
                         .testTag("dashboard_notes_nav")
                         .clickable(onClick = onNavigateToNotes),
                     colors = CardDefaults.cardColors(
-                        containerColor = lerp(NotepadPrimary, Color.Black, 0.55f)
+                        containerColor = lerp(NotepadPrimary, Color.Black, 0.7f)
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
                 ) {
@@ -423,7 +423,7 @@ private fun DashboardSection(
     seeAllTag: String? = null,
     content: @Composable () -> Unit
 ) {
-    val cardColor = lerp(MaterialTheme.colorScheme.surfaceVariant, Color.Black, 0.4f)
+    val cardColor = lerp(MaterialTheme.colorScheme.surfaceVariant, Color.Black, 0.55f)
     Card(
         modifier = Modifier
             .fillMaxWidth()
