@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -62,6 +64,7 @@ fun SettingsScreen(
     var showFinancePicker by rememberSaveable { mutableStateOf(false) }
     var showMoodPicker by rememberSaveable { mutableStateOf(false) }
     var showMoodPeriodPicker by rememberSaveable { mutableStateOf(false) }
+    var showFinanceIntervalPicker by rememberSaveable { mutableStateOf(false) }
     var showCheckInReminderDialog by rememberSaveable { mutableStateOf(false) }
     var showGratitudeReminderDialog by rememberSaveable { mutableStateOf(false) }
     var showReflectionReminderDialog by rememberSaveable { mutableStateOf(false) }
@@ -125,6 +128,66 @@ fun SettingsScreen(
                                 value = uiState.moodWidgetPeriod.label,
                                 onClick = { showMoodPeriodPicker = true }
                             )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            RowWithIcon(
+                                icon = { Icon(Icons.Default.AttachMoney, contentDescription = null) },
+                                title = "Finance"
+                            )
+                            SettingsRow(
+                                title = "Default interval",
+                                value = uiState.financeInterval.label,
+                                onClick = { showFinanceIntervalPicker = true }
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Show category names")
+                                    Text(
+                                        "Display category text under records",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = uiState.financeShowNotes,
+                                    onCheckedChange = viewModel::setFinanceShowNotes
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Show hashtags")
+                                    Text(
+                                        "Display tags extracted from descriptions",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = uiState.financeShowTags,
+                                    onCheckedChange = viewModel::setFinanceShowTags
+                                )
+                            }
                         }
                     }
 
@@ -259,6 +322,19 @@ fun SettingsScreen(
                 showMoodPeriodPicker = false
             },
             onDismiss = { showMoodPeriodPicker = false }
+        )
+    }
+
+    if (showFinanceIntervalPicker) {
+        SettingsPickerDialog(
+            title = "Finance default interval",
+            options = FinanceIntervalSetting.entries,
+            selected = uiState.financeInterval,
+            onSelect = {
+                viewModel.setFinanceInterval(it)
+                showFinanceIntervalPicker = false
+            },
+            onDismiss = { showFinanceIntervalPicker = false }
         )
     }
 
@@ -419,6 +495,7 @@ private fun <T> SettingsPickerDialog(
                                 is FinanceWidget -> option.label
                                 is MoodWidget -> option.label
                                 is MoodWidgetPeriod -> option.label
+                                is FinanceIntervalSetting -> option.label
                                 else -> option.name
                             },
                             style = MaterialTheme.typography.bodyLarge

@@ -30,6 +30,9 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.financeWidget,
             settingsRepository.moodWidget,
             settingsRepository.moodWidgetPeriod,
+            settingsRepository.financeInterval,
+            settingsRepository.financeShowNotes,
+            settingsRepository.financeShowTags,
             reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.CHECK_IN_ID),
             reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.GRATITUDE_ID),
             reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.REFLECTION_ID)
@@ -39,17 +42,23 @@ class SettingsViewModel @Inject constructor(
         val financeWidget = values[1] as FinanceWidget
         val moodWidget = values[2] as MoodWidget
         val moodWidgetPeriod = values[3] as MoodWidgetPeriod
+        val financeInterval = values[4] as FinanceIntervalSetting
+        val financeShowNotes = values[5] as Boolean
+        val financeShowTags = values[6] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val checkInReminders = values[4] as List<ReminderEntity>
+        val checkInReminders = values[7] as List<ReminderEntity>
         @Suppress("UNCHECKED_CAST")
-        val gratitudeReminders = values[5] as List<ReminderEntity>
+        val gratitudeReminders = values[8] as List<ReminderEntity>
         @Suppress("UNCHECKED_CAST")
-        val reflectionReminders = values[6] as List<ReminderEntity>
+        val reflectionReminders = values[9] as List<ReminderEntity>
         SettingsUiState(
             isPinSet = isPinSet,
             financeWidget = financeWidget,
             moodWidget = moodWidget,
             moodWidgetPeriod = moodWidgetPeriod,
+            financeInterval = financeInterval,
+            financeShowNotes = financeShowNotes,
+            financeShowTags = financeShowTags,
             checkInReminders = checkInReminders,
             gratitudeReminders = gratitudeReminders,
             reflectionReminders = reflectionReminders
@@ -75,6 +84,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setMoodWidgetPeriod(period: MoodWidgetPeriod) {
         settingsRepository.setMoodWidgetPeriod(period)
+    }
+
+    fun setFinanceInterval(interval: FinanceIntervalSetting) {
+        settingsRepository.setFinanceInterval(interval)
+    }
+
+    fun setFinanceShowNotes(enabled: Boolean) {
+        settingsRepository.setFinanceShowNotes(enabled)
+    }
+
+    fun setFinanceShowTags(enabled: Boolean) {
+        settingsRepository.setFinanceShowTags(enabled)
     }
 
     fun saveCheckInReminder(title: String, message: String, triggerTime: Long, repeatInterval: Long) {
@@ -146,6 +167,9 @@ data class SettingsUiState(
     val financeWidget: FinanceWidget = FinanceWidget.INCOME_EXPENSE,
     val moodWidget: MoodWidget = MoodWidget.MOOD_LINE,
     val moodWidgetPeriod: MoodWidgetPeriod = MoodWidgetPeriod.MONTH,
+    val financeInterval: FinanceIntervalSetting = FinanceIntervalSetting.MONTH,
+    val financeShowNotes: Boolean = true,
+    val financeShowTags: Boolean = true,
     val checkInReminders: List<ReminderEntity> = emptyList(),
     val gratitudeReminders: List<ReminderEntity> = emptyList(),
     val reflectionReminders: List<ReminderEntity> = emptyList()

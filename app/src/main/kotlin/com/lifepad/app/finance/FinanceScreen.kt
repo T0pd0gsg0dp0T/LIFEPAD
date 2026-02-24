@@ -43,7 +43,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -200,24 +199,24 @@ fun FinanceScreen(
             )
         },
         floatingActionButton = {
-            when (selectedTab) {
-                0 -> {
-                    androidx.compose.material3.FloatingActionButton(
-                        onClick = onCreateTransaction,
-                        modifier = Modifier.testTag("fab_create_transaction")
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add record")
-                    }
-                }
-                1 -> {
-                    androidx.compose.material3.FloatingActionButton(
-                        onClick = onCreateCategory,
-                        modifier = Modifier.testTag("fab_create_category")
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add category")
-                    }
-                }
+    when (selectedTab) {
+        0 -> {
+            androidx.compose.material3.FloatingActionButton(
+                onClick = onCreateTransaction,
+                modifier = Modifier.testTag("fab_create_transaction")
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add record")
             }
+        }
+        1 -> {
+            androidx.compose.material3.FloatingActionButton(
+                onClick = onCreateCategory,
+                modifier = Modifier.testTag("fab_create_category")
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add category")
+            }
+        }
+    }
         },
         snackbarHost = {
             ErrorSnackbarHost(
@@ -269,18 +268,6 @@ fun FinanceScreen(
                         )
                     }
                 )
-                Tab(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    text = {
-                        Text(
-                            text = "Settings",
-                            maxLines = 1,
-                            softWrap = false,
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
-                        )
-                    }
-                )
             }
 
             when (selectedTab) {
@@ -308,16 +295,6 @@ fun FinanceScreen(
                     StatsTab(
                         uiState = uiState,
                         onNavigateToStats = onNavigateToStats
-                    )
-                }
-                3 -> {
-                    SettingsTab(
-                        interval = uiState.interval,
-                        showNotes = uiState.showNotes,
-                        showTags = uiState.showTags,
-                        onIntervalChange = viewModel::setInterval,
-                        onShowNotesChange = viewModel::setShowNotes,
-                        onShowTagsChange = viewModel::setShowTags
                     )
                 }
             }
@@ -839,82 +816,6 @@ private fun StatsTab(
     }
 }
 
-@Composable
-private fun SettingsTab(
-    interval: FinanceIntervalSetting,
-    showNotes: Boolean,
-    showTags: Boolean,
-    onIntervalChange: (FinanceIntervalSetting) -> Unit,
-    onShowNotesChange: (Boolean) -> Unit,
-    onShowTagsChange: (Boolean) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Records", style = MaterialTheme.typography.titleSmall)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text("Default interval")
-                Text(interval.label, style = MaterialTheme.typography.labelSmall)
-            }
-            DropdownMenuButton(
-                current = interval,
-                onSelect = onIntervalChange
-            )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text("Show category names")
-                Text("Display category text under records", style = MaterialTheme.typography.labelSmall)
-            }
-            Switch(checked = showNotes, onCheckedChange = onShowNotesChange)
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text("Show hashtags")
-                Text("Display tags extracted from descriptions", style = MaterialTheme.typography.labelSmall)
-            }
-            Switch(checked = showTags, onCheckedChange = onShowTagsChange)
-        }
-    }
-}
-
-@Composable
-private fun DropdownMenuButton(
-    current: FinanceIntervalSetting,
-    onSelect: (FinanceIntervalSetting) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { expanded = true }) {
-            Text("Change")
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            FinanceIntervalSetting.entries.forEach { interval ->
-                DropdownMenuItem(
-                    text = { Text(interval.label) },
-                    onClick = {
-                        expanded = false
-                        onSelect(interval)
-                    }
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun FilterSheet(
