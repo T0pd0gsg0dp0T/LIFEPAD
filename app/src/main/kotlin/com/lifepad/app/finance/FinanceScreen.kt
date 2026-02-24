@@ -736,66 +736,7 @@ private fun StatsTab(
     uiState: FinanceHomeUiState,
     onNavigateToStats: () -> Unit
 ) {
-    val currencyFormat = NumberFormat.getCurrencyInstance()
-    val expenseTotals = uiState.transactions
-        .filter { it.type == TransactionType.EXPENSE }
-        .groupBy { it.categoryId ?: -1L }
-        .mapValues { it.value.sumOf { tx -> tx.amount } }
-        .toList()
-        .sortedByDescending { it.second }
-        .take(5)
-    val expenseDenominator = uiState.totalExpense.takeIf { it > 0.0 } ?: 1.0
-
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Snapshot", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Income", style = MaterialTheme.typography.labelSmall)
-                    Text(currencyFormat.format(uiState.totalIncome), color = IncomeColor, fontWeight = FontWeight.SemiBold)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Expenses", style = MaterialTheme.typography.labelSmall)
-                    Text(currencyFormat.format(uiState.totalExpense), color = ExpenseColor, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Top Spending", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        if (expenseTotals.isEmpty()) {
-            Text("No expense data yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            expenseTotals.forEach { (categoryId, amount) ->
-                val categoryName = uiState.categories.firstOrNull { it.id == categoryId }?.name ?: "Uncategorized"
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(categoryName, style = MaterialTheme.typography.bodyMedium)
-                        Text(currencyFormat.format(amount), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    androidx.compose.material3.LinearProgressIndicator(
-                        progress = { (amount / expenseDenominator).coerceIn(0.0, 1.0).toFloat() },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp),
-                        color = ExpenseColor
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -809,7 +750,7 @@ private fun StatsTab(
             ) {
                 Column {
                     Text("Full Statistics", style = MaterialTheme.typography.titleMedium)
-                    Text("Charts, trends, and breakdowns")
+                    Text("All finance stats and analytics")
                 }
                 Icon(Icons.AutoMirrored.Filled.ArrowRight, contentDescription = "Open")
             }
