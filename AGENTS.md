@@ -31,6 +31,7 @@
 - Git history is not available in this workspace, so no commit convention can be inferred.
 - Use concise, scoped messages (example: `feat(journal): add mood filter`).
 - PRs should include a summary, test commands with results, and screenshots for UI changes.
+- Default workflow: after any code changes, immediately commit, push, build (`./gradlew assembleDebug`), and install (`./gradlew installDebug`) without asking.
 
 ## Configuration & Security Notes
 - Keep SDK paths and machine-local values in `local.properties` (do not commit).
