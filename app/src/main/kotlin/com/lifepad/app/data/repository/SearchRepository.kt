@@ -22,7 +22,7 @@ class SearchRepository @Inject constructor(
         types: Set<String>? = null,
         limit: Int = 50
     ): List<SearchResult> = coroutineScope {
-        val ftsQuery = "$query*"
+        val ftsQuery = "\"${query.replace("\"", " ").trim()}\"*"
 
         val searchNotes = types == null || "NOTE" in types
         val searchEntries = types == null || "ENTRY" in types

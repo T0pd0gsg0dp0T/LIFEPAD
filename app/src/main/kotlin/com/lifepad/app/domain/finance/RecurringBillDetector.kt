@@ -56,7 +56,7 @@ object RecurringBillDetector {
         if (mean <= 0) return null
         val stddev = sqrt(amounts.map { (it - mean) * (it - mean) }.average())
         val cv = stddev / mean
-        if (cv > 0.10) return null
+        if (cv > 0.15) return null
 
         // Compute next due date
         val lastDate = sorted.last().transactionDate
@@ -80,9 +80,10 @@ object RecurringBillDetector {
     }
 
     private fun normalizeDescription(description: String): String {
-        // Strip hashtags and collapse whitespace
+        // Strip hashtags, punctuation, and collapse whitespace
         return description
             .replace(Regex("#\\w+"), "")
+            .replace(Regex("[^\\w\\s]"), "")
             .replace(Regex("\\s+"), " ")
             .trim()
             .lowercase()

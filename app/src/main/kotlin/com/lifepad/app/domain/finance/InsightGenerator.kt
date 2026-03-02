@@ -4,8 +4,6 @@ import com.lifepad.app.data.local.dao.BudgetWithSpendingRaw
 import com.lifepad.app.data.local.entity.GoalEntity
 import com.lifepad.app.data.local.entity.RecurringBillEntity
 import java.text.NumberFormat
-import java.util.Currency
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
@@ -16,9 +14,7 @@ data class CategorySpendingData(
 
 object InsightGenerator {
 
-    private val currencyFormat = NumberFormat.getCurrencyInstance(Locale.US).apply {
-        currency = Currency.getInstance("USD")
-    }
+    private val currencyFormat = NumberFormat.getCurrencyInstance()
 
     fun generate(
         thisMonthIncome: Double,
@@ -59,11 +55,11 @@ object InsightGenerator {
             }
         }
 
-        // 2. Bills due soon (within 3 days)
+        // 2. Bills due soon (within 7 days)
         val now = System.currentTimeMillis()
-        val threeDaysMs = TimeUnit.DAYS.toMillis(3)
+        val sevenDaysMs = TimeUnit.DAYS.toMillis(7)
         upcomingBills
-            .filter { it.nextDueDate in now..(now + threeDaysMs) }
+            .filter { it.nextDueDate in now..(now + sevenDaysMs) }
             .forEach { bill ->
                 val daysUntil = TimeUnit.MILLISECONDS.toDays(bill.nextDueDate - now).toInt()
                 val dayLabel = when (daysUntil) {

@@ -460,6 +460,8 @@ private fun SuggestionAssistChip(
 }
 
 private fun formatDate(timestamp: Long): String {
-    val formatter = SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
-    return formatter.format(Date(timestamp))
+    val entryYear = java.util.Calendar.getInstance().also { it.timeInMillis = timestamp }.get(java.util.Calendar.YEAR)
+    val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+    val pattern = if (entryYear != currentYear) "EEEE, MMM d, yyyy" else "EEEE, MMM d"
+    return SimpleDateFormat(pattern, Locale.getDefault()).format(Date(timestamp))
 }

@@ -33,12 +33,16 @@ class JournalListViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     private val _currentStreak = MutableStateFlow(0)
 
+    private val _statusFlow = combine(_errorMessage, _currentStreak) { error, streak -> error to streak }
+
     init {
         viewModelScope.launch {
-            try {
-                val (current, _) = journalRepository.calculateStreaks()
-                _currentStreak.value = current
-            } catch (_: Exception) {}
+            journalRepository.getAllEntries().collect {
+                try {
+                    val (current, _) = journalRepository.calculateStreaks()
+                    _currentStreak.value = current
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -47,14 +51,14 @@ class JournalListViewModel @Inject constructor(
         _searchQuery,
         _isSearching,
         _searchResults,
-        _errorMessage
-    ) { entries, searchQuery, isSearching, searchResults, errorMessage ->
+        _statusFlow
+    ) { entries, searchQuery, isSearching, searchResults, (errorMessage, streak) ->
         JournalListUiState(
             entries = entries,
             searchQuery = searchQuery,
             isSearching = isSearching,
             searchResults = searchResults,
-            currentStreak = _currentStreak.value,
+            currentStreak = streak,
             errorMessage = errorMessage
         )
     }.stateIn(

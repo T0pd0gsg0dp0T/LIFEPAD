@@ -132,7 +132,8 @@ class DashboardViewModel @Inject constructor(
         val moodWidget: MoodWidget,
         val moodWidgetPeriod: MoodWidgetPeriod,
         val emotionFrequency: List<EmotionFrequencyRow>,
-        val trapFrequency: List<TrapFrequencyRow>
+        val trapFrequency: List<TrapFrequencyRow>,
+        val safeToSpend: Double = 0.0
     )
 
     private val dashboardInputs: StateFlow<DashboardInputs> = combine(
@@ -179,6 +180,10 @@ class DashboardViewModel @Inject constructor(
         _trapFrequency
     ) { inputs, trapFrequency ->
         inputs.copy(trapFrequency = trapFrequency)
+    }.combine(
+        _safeToSpend
+    ) { inputs, safeToSpend ->
+        inputs.copy(safeToSpend = safeToSpend)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -193,7 +198,8 @@ class DashboardViewModel @Inject constructor(
             moodWidget = MoodWidget.MOOD_LINE,
             moodWidgetPeriod = MoodWidgetPeriod.MONTH,
             emotionFrequency = emptyList(),
-            trapFrequency = emptyList()
+            trapFrequency = emptyList(),
+            safeToSpend = 0.0
         )
     )
 
@@ -242,7 +248,7 @@ class DashboardViewModel @Inject constructor(
             recentNoteId = recentNote?.id,
             recentNoteTitle = recentNote?.title?.ifBlank { "Untitled" },
             netBalance = balance,
-            safeToSpendDaily = _safeToSpend.value,
+            safeToSpendDaily = inputs.safeToSpend,
             isLoading = false
         )
     }.stateIn(
