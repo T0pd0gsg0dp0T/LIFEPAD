@@ -35,7 +35,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
@@ -45,6 +47,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -58,6 +62,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -85,6 +90,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.ChecklistItemRow
 import com.lifepad.app.components.HashtagChip
 import com.lifepad.app.components.InteractiveMarkdownText
+import com.lifepad.app.components.TimePickerDialog
 import com.lifepad.app.data.local.entity.JournalEntryEntity
 import com.lifepad.app.data.local.entity.NoteEntity
 import java.io.File
@@ -122,6 +128,8 @@ fun NoteEditorScreen(
     var showSearchDialog by remember { mutableStateOf(false) }
     var showCountDialog by remember { mutableStateOf(false) }
     var showTimestampDialog by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     var searchQuery by remember { mutableStateOf("") }
     var searchMatches by remember { mutableStateOf<List<IntRange>>(emptyList()) }
@@ -342,6 +350,12 @@ fun NoteEditorScreen(
                         }
                     }) {
                         Icon(Icons.Default.AddPhotoAlternate, contentDescription = "Add image")
+                    }
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = "Set date")
+                    }
+                    IconButton(onClick = { showTimePicker = true }) {
+                        Icon(Icons.Default.Schedule, contentDescription = "Set time")
                     }
                 }
             }
@@ -689,6 +703,40 @@ fun NoteEditorScreen(
             confirmButton = {
                 TextButton(onClick = { showTimestampDialog = false }) { Text("Close") }
             }
+        )
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = uiState.createdAt
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { viewModel.onDateChange(it) }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showTimePicker) {
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = uiState.createdAt
+        TimePickerDialog(
+            initialHour = cal.get(java.util.Calendar.HOUR_OF_DAY),
+            initialMinute = cal.get(java.util.Calendar.MINUTE),
+            onConfirm = { hour, minute ->
+                viewModel.onTimeChange(hour, minute)
+                showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false }
         )
     }
 }

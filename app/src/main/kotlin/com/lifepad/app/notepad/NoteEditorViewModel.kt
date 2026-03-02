@@ -184,7 +184,32 @@ class NoteEditorViewModel @Inject constructor(
     }
 
     fun onDateChange(dateMillis: Long) {
-        _uiState.update { it.copy(createdAt = dateMillis) }
+        val currentCal = java.util.Calendar.getInstance()
+        currentCal.timeInMillis = _uiState.value.createdAt
+        val hour = currentCal.get(java.util.Calendar.HOUR_OF_DAY)
+        val minute = currentCal.get(java.util.Calendar.MINUTE)
+        val utcCal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        utcCal.timeInMillis = dateMillis
+        currentCal.set(
+            utcCal.get(java.util.Calendar.YEAR),
+            utcCal.get(java.util.Calendar.MONTH),
+            utcCal.get(java.util.Calendar.DAY_OF_MONTH),
+            hour, minute, 0
+        )
+        currentCal.set(java.util.Calendar.MILLISECOND, 0)
+        _uiState.update { it.copy(createdAt = currentCal.timeInMillis) }
+        hasUnsavedChanges = true
+        scheduleAutoSave()
+    }
+
+    fun onTimeChange(hour: Int, minute: Int) {
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = _uiState.value.createdAt
+        cal.set(java.util.Calendar.HOUR_OF_DAY, hour)
+        cal.set(java.util.Calendar.MINUTE, minute)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        _uiState.update { it.copy(createdAt = cal.timeInMillis) }
         hasUnsavedChanges = true
         scheduleAutoSave()
     }

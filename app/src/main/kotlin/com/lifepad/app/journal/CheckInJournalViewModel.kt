@@ -86,6 +86,33 @@ class CheckInJournalViewModel @Inject constructor(
     fun onStressChange(value: Int) { _uiState.update { it.copy(stress = value.coerceIn(0, 100)) } }
     fun onNotesChange(text: String) { _uiState.update { it.copy(notes = text) } }
 
+    fun onDateChange(dateMillis: Long) {
+        val currentCal = java.util.Calendar.getInstance()
+        currentCal.timeInMillis = _uiState.value.entryDate
+        val hour = currentCal.get(java.util.Calendar.HOUR_OF_DAY)
+        val minute = currentCal.get(java.util.Calendar.MINUTE)
+        val utcCal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        utcCal.timeInMillis = dateMillis
+        currentCal.set(
+            utcCal.get(java.util.Calendar.YEAR),
+            utcCal.get(java.util.Calendar.MONTH),
+            utcCal.get(java.util.Calendar.DAY_OF_MONTH),
+            hour, minute, 0
+        )
+        currentCal.set(java.util.Calendar.MILLISECOND, 0)
+        _uiState.update { it.copy(entryDate = currentCal.timeInMillis) }
+    }
+
+    fun onTimeChange(hour: Int, minute: Int) {
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = _uiState.value.entryDate
+        cal.set(java.util.Calendar.HOUR_OF_DAY, hour)
+        cal.set(java.util.Calendar.MINUTE, minute)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        _uiState.update { it.copy(entryDate = cal.timeInMillis) }
+    }
+
     fun toggleReminderDialog() {
         _uiState.update { it.copy(showReminderDialog = !it.showReminderDialog) }
     }

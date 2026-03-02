@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Schedule
+import com.lifepad.app.components.TimePickerDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -83,6 +85,7 @@ fun TransactionEditorScreen(
     val bottomSheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     val selectedCategory = categories.find { it.id == uiState.categoryId }
     val expectedType = if (uiState.type == TransactionType.INCOME) CategoryType.INCOME else CategoryType.EXPENSE
@@ -247,6 +250,28 @@ fun TransactionEditorScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = txDateFormat.format(Date(uiState.transactionDate)),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    // Time selector
+                    val txTimeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showTimePicker = true }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Schedule,
+                            contentDescription = "Change time",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = txTimeFormat.format(Date(uiState.transactionDate)),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -435,6 +460,21 @@ fun TransactionEditorScreen(
             ) {
                 DatePicker(state = datePickerState)
             }
+        }
+
+        // Time picker dialog
+        if (showTimePicker) {
+            val cal = java.util.Calendar.getInstance()
+            cal.timeInMillis = uiState.transactionDate
+            TimePickerDialog(
+                initialHour = cal.get(java.util.Calendar.HOUR_OF_DAY),
+                initialMinute = cal.get(java.util.Calendar.MINUTE),
+                onConfirm = { hour, minute ->
+                    viewModel.onTimeChange(hour, minute)
+                    showTimePicker = false
+                },
+                onDismiss = { showTimePicker = false }
+            )
         }
 
         // Entry picker bottom sheet

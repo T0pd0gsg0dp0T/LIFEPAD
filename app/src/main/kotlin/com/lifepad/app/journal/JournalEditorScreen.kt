@@ -40,6 +40,7 @@ import com.lifepad.app.components.HashtagChip
 import com.lifepad.app.components.InteractiveMarkdownText
 import com.lifepad.app.components.MoodSelector
 import com.lifepad.app.components.ReminderDialog
+import com.lifepad.app.components.TimePickerDialog
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -55,6 +56,7 @@ fun JournalEditorScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -118,6 +120,12 @@ fun JournalEditorScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clickable { showDatePicker = true }
+                        )
+                        Text(
+                            text = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(uiState.entryDate)) + " \u270E",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { showTimePicker = true }
                         )
                         if (uiState.isSaving) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -404,6 +412,21 @@ fun JournalEditorScreen(
             ) {
                 DatePicker(state = datePickerState)
             }
+        }
+
+        // Time picker dialog
+        if (showTimePicker) {
+            val cal = java.util.Calendar.getInstance()
+            cal.timeInMillis = uiState.entryDate
+            TimePickerDialog(
+                initialHour = cal.get(java.util.Calendar.HOUR_OF_DAY),
+                initialMinute = cal.get(java.util.Calendar.MINUTE),
+                onConfirm = { hour, minute ->
+                    viewModel.onTimeChange(hour, minute)
+                    showTimePicker = false
+                },
+                onDismiss = { showTimePicker = false }
+            )
         }
 
         // Reminder dialog
