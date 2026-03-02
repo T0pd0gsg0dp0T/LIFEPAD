@@ -32,44 +32,35 @@ class SettingsViewModel @Inject constructor(
     private val restoreResult = MutableStateFlow<RestoreResult?>(null)
 
     val uiState: StateFlow<SettingsUiState> = combine(
-        listOf(
-            pinState,
-            settingsRepository.financeWidget,
-            settingsRepository.moodWidget,
-            settingsRepository.moodWidgetPeriod,
-            settingsRepository.financeInterval,
-            settingsRepository.financeShowNotes,
-            settingsRepository.financeShowTags,
-            reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.CHECK_IN_ID),
-            reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.GRATITUDE_ID),
-            reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.REFLECTION_ID)
-        )
-    ) { values ->
-        val isPinSet = values[0] as Boolean
-        val financeWidget = values[1] as FinanceWidget
-        val moodWidget = values[2] as MoodWidget
-        val moodWidgetPeriod = values[3] as MoodWidgetPeriod
-        val financeInterval = values[4] as FinanceIntervalSetting
-        val financeShowNotes = values[5] as Boolean
-        val financeShowTags = values[6] as Boolean
-        @Suppress("UNCHECKED_CAST")
-        val checkInReminders = values[7] as List<ReminderEntity>
-        @Suppress("UNCHECKED_CAST")
-        val gratitudeReminders = values[8] as List<ReminderEntity>
-        @Suppress("UNCHECKED_CAST")
-        val reflectionReminders = values[9] as List<ReminderEntity>
+        pinState,
+        settingsRepository.financeWidget,
+        settingsRepository.moodWidget,
+        settingsRepository.moodWidgetPeriod,
+        settingsRepository.financeInterval
+    ) { isPinSet, financeWidget, moodWidget, moodWidgetPeriod, financeInterval ->
         SettingsUiState(
             isPinSet = isPinSet,
             financeWidget = financeWidget,
             moodWidget = moodWidget,
             moodWidgetPeriod = moodWidgetPeriod,
-            financeInterval = financeInterval,
-            financeShowNotes = financeShowNotes,
-            financeShowTags = financeShowTags,
-            checkInReminders = checkInReminders,
-            gratitudeReminders = gratitudeReminders,
-            reflectionReminders = reflectionReminders
+            financeInterval = financeInterval
         )
+    }.combine(settingsRepository.financeShowNotes) { state, financeShowNotes ->
+        state.copy(financeShowNotes = financeShowNotes)
+    }.combine(settingsRepository.financeShowTags) { state, financeShowTags ->
+        state.copy(financeShowTags = financeShowTags)
+    }.combine(
+        reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.CHECK_IN_ID)
+    ) { state, checkInReminders ->
+        state.copy(checkInReminders = checkInReminders)
+    }.combine(
+        reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.GRATITUDE_ID)
+    ) { state, gratitudeReminders ->
+        state.copy(gratitudeReminders = gratitudeReminders)
+    }.combine(
+        reminderRepository.getForItem(JournalTemplateReminders.ITEM_TYPE, JournalTemplateReminders.REFLECTION_ID)
+    ) { state, reflectionReminders ->
+        state.copy(reflectionReminders = reflectionReminders)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

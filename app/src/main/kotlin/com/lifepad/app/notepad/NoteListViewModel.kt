@@ -185,10 +185,10 @@ class NoteListViewModel @Inject constructor(
 
     fun goUpFolder() {
         val current = _currentFolderId.value ?: return
+        clearSelection()
         viewModelScope.launch {
             val folder = folderRepository.getFolderById(current)
             _currentFolderId.value = folder?.parentId
-            clearSelection()
             refreshFolderPath()
         }
     }

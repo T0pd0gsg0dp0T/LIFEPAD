@@ -62,6 +62,7 @@ interface NoteDao {
         JOIN notes_fts ON notes.rowid = notes_fts.rowid
         WHERE notes_fts MATCH :query
         ORDER BY notes.updatedAt DESC
+        LIMIT 200
     """)
     suspend fun searchNotes(query: String): List<NoteEntity>
 }

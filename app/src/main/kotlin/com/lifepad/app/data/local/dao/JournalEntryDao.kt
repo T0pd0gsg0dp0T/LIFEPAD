@@ -120,6 +120,7 @@ interface JournalEntryDao {
         JOIN journal_entries_fts ON journal_entries.rowid = journal_entries_fts.rowid
         WHERE journal_entries_fts MATCH :query
         ORDER BY journal_entries.entryDate DESC
+        LIMIT 200
     """)
     suspend fun searchEntries(query: String): List<JournalEntryEntity>
 }
