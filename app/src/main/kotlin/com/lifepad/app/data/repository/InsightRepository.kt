@@ -24,7 +24,14 @@ class InsightRepository @Inject constructor(
         val cal = Calendar.getInstance()
 
         // This month range
+        // First set calendar to last day of month at 23:59:59.999 to get thisMonthEnd
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 999)
         val thisMonthEnd = cal.timeInMillis
+        // Then reset to first day of month at 00:00:00.000 for thisMonthStart
         cal.set(Calendar.DAY_OF_MONTH, 1)
         cal.set(Calendar.HOUR_OF_DAY, 0)
         cal.set(Calendar.MINUTE, 0)

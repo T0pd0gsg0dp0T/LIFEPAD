@@ -24,10 +24,11 @@ class GoalRepository @Inject constructor(
     }
 
     suspend fun updateProgress(goalId: Long, newCurrentAmount: Double) {
+        val safeAmount = newCurrentAmount.coerceAtLeast(0.0)
         val goal = goalDao.getGoalById(goalId) ?: return
         val updated = goal.copy(
-            currentAmount = newCurrentAmount,
-            isCompleted = newCurrentAmount >= goal.targetAmount,
+            currentAmount = safeAmount,
+            isCompleted = safeAmount >= goal.targetAmount,
             updatedAt = System.currentTimeMillis()
         )
         goalDao.update(updated)

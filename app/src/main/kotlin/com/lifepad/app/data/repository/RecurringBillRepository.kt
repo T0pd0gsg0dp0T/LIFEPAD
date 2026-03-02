@@ -52,7 +52,9 @@ class RecurringBillRepository @Inject constructor(
         )
         val savedId = recurringBillDao.insert(confirmed)
         val id = if (bill.id == 0L) savedId else bill.id
-        scheduleReminderForBill(confirmed.copy(id = id))
+        if (id > 0L) {
+            scheduleReminderForBill(confirmed.copy(id = id))
+        }
         return id
     }
 

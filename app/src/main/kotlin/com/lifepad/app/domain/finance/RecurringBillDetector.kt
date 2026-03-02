@@ -43,10 +43,10 @@ object RecurringBillDetector {
 
         // Determine frequency from median interval
         val frequency = when {
-            medianInterval in 6.0..8.0 -> BillFrequency.WEEKLY
-            medianInterval in 13.0..16.0 -> BillFrequency.BIWEEKLY
+            medianInterval in 5.5..8.5 -> BillFrequency.WEEKLY
+            medianInterval in 12.0..17.0 -> BillFrequency.BIWEEKLY
             medianInterval in 25.0..35.0 -> BillFrequency.MONTHLY
-            medianInterval in 350.0..380.0 -> BillFrequency.YEARLY
+            medianInterval in 340.0..390.0 -> BillFrequency.YEARLY
             else -> return null
         }
 

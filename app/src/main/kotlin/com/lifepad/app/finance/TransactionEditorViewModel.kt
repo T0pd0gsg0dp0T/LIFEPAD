@@ -262,6 +262,11 @@ class TransactionEditorViewModel @Inject constructor(
 
     suspend fun saveTransaction(): Long? {
         val state = _uiState.value
+        val amountSaveRegex = Regex("^\\d+(\\.\\d{0,2})?$")
+        if (!state.amount.matches(amountSaveRegex)) {
+            _uiState.update { it.copy(errorMessage = "Invalid amount") }
+            return null
+        }
         val amount = state.amount.toDoubleOrNull()
         if (amount == null) {
             _uiState.update { it.copy(errorMessage = "Invalid amount") }

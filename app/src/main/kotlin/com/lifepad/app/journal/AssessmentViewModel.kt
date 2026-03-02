@@ -49,6 +49,7 @@ class AssessmentViewModel @Inject constructor(
 
     fun answerQuestion(questionIndex: Int, answerValue: Int) {
         val currentAnswers = _uiState.value.answers.toMutableList()
+        if (questionIndex < 0 || questionIndex >= currentAnswers.size) return
         currentAnswers[questionIndex] = answerValue
         _uiState.update { it.copy(answers = currentAnswers) }
     }

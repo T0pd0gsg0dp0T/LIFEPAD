@@ -134,6 +134,7 @@ class FinanceRepository @Inject constructor(
 
     suspend fun deleteAccount(accountId: Long) {
         val account = accountDao.getAccountById(accountId) ?: return
+        transactionDao.clearAccountForDeletedAccount(accountId)
         accountDao.delete(account)
     }
 

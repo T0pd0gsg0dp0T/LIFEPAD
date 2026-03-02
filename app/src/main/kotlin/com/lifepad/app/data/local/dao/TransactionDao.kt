@@ -65,6 +65,9 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Query("UPDATE transactions SET accountId = NULL WHERE accountId = :accountId")
+    suspend fun clearAccountForDeletedAccount(accountId: Long)
+
     @Query("""
         SELECT COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE -amount END), 0.0)
         FROM transactions

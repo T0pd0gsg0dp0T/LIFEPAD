@@ -19,7 +19,7 @@ object SafeToSpendCalculator {
         totalMonthlyGoalContributions: Double
     ): SafeToSpendResult {
         val now = System.currentTimeMillis()
-        val cal = Calendar.getInstance()
+        val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
 
         // Days remaining in month (including today)
         val today = cal.get(Calendar.DAY_OF_MONTH)
