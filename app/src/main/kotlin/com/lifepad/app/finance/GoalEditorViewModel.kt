@@ -7,6 +7,7 @@ import com.lifepad.app.data.local.entity.AccountEntity
 import com.lifepad.app.data.local.entity.GoalEntity
 import com.lifepad.app.data.local.entity.GoalType
 import com.lifepad.app.data.repository.FinanceRepository
+import com.lifepad.app.data.local.entity.BillFrequency
 import com.lifepad.app.data.repository.GoalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,13 +19,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class ContributionFrequency(val label: String) {
+    WEEKLY("Weekly"),
+    BIWEEKLY("Bi-weekly"),
+    MONTHLY("Monthly")
+}
+
 data class GoalEditorUiState(
     val goalId: Long? = null,
     val name: String = "",
     val type: GoalType = GoalType.SAVINGS,
     val targetAmount: String = "",
     val currentAmount: String = "0",
-    val monthlyContribution: String = "0",
+    val contributionFrequency: ContributionFrequency = ContributionFrequency.MONTHLY,
+    val calculatedContribution: Double = 0.0,
     val deadline: Long? = null,
     val accountId: Long? = null,
     val notes: String = "",
@@ -37,7 +45,8 @@ data class GoalEditorUiState(
 class GoalEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val goalRepository: GoalRepository,
-    private val financeRepository: FinanceRepository
+    private val financeRepository: FinanceRepository,
+    private val recurringBillRepository: com.lifepad.app.data.repository.RecurringBillRepository
 ) : ViewModel() {
 
     private val goalId: Long? = savedStateHandle.get<Long>("goalId")?.takeIf { it != 0L }
@@ -64,7 +73,7 @@ class GoalEditorViewModel @Inject constructor(
                                 type = goal.type,
                                 targetAmount = goal.targetAmount.toString(),
                                 currentAmount = goal.currentAmount.toString(),
-                                monthlyContribution = goal.monthlyContribution.toString(),
+                                calculatedContribution = goal.monthlyContribution,
                                 deadline = goal.deadline,
                                 accountId = goal.accountId,
                                 notes = goal.notes,
@@ -90,19 +99,56 @@ class GoalEditorViewModel @Inject constructor(
     fun onTargetAmountChange(amount: String) {
         if (amount.isEmpty() || amount.matches(Regex("^\\d*\\.?\\d*$"))) {
             _uiState.update { it.copy(targetAmount = amount) }
+            recalculateContribution()
         }
     }
     fun onCurrentAmountChange(amount: String) {
         if (amount.isEmpty() || amount.matches(Regex("^\\d*\\.?\\d*$"))) {
             _uiState.update { it.copy(currentAmount = amount) }
+            recalculateContribution()
         }
     }
-    fun onMonthlyContributionChange(amount: String) {
-        if (amount.isEmpty() || amount.matches(Regex("^\\d*\\.?\\d*$"))) {
-            _uiState.update { it.copy(monthlyContribution = amount) }
-        }
+    fun onContributionFrequencyChange(frequency: ContributionFrequency) {
+        _uiState.update { it.copy(contributionFrequency = frequency) }
+        recalculateContribution()
     }
-    fun onDeadlineChange(deadline: Long?) { _uiState.update { it.copy(deadline = deadline) } }
+
+    private fun recalculateContribution() {
+        val state = _uiState.value
+        val target = state.targetAmount.toDoubleOrNull() ?: return
+        val current = state.currentAmount.toDoubleOrNull() ?: 0.0
+        val deadline = state.deadline ?: return
+        val remaining = target - current
+        if (remaining <= 0) {
+            _uiState.update { it.copy(calculatedContribution = 0.0) }
+            return
+        }
+        val now = System.currentTimeMillis()
+        val msUntilDeadline = deadline - now
+        if (msUntilDeadline <= 0) {
+            _uiState.update { it.copy(calculatedContribution = remaining) }
+            return
+        }
+        val contribution = when (state.contributionFrequency) {
+            ContributionFrequency.WEEKLY -> {
+                val weeks = msUntilDeadline / (7L * 24 * 60 * 60 * 1000)
+                if (weeks > 0) remaining / weeks else remaining
+            }
+            ContributionFrequency.BIWEEKLY -> {
+                val biweeks = msUntilDeadline / (14L * 24 * 60 * 60 * 1000)
+                if (biweeks > 0) remaining / biweeks else remaining
+            }
+            ContributionFrequency.MONTHLY -> {
+                val months = msUntilDeadline / (30L * 24 * 60 * 60 * 1000)
+                if (months > 0) remaining / months else remaining
+            }
+        }
+        _uiState.update { it.copy(calculatedContribution = contribution) }
+    }
+    fun onDeadlineChange(deadline: Long?) {
+        _uiState.update { it.copy(deadline = deadline) }
+        recalculateContribution()
+    }
     fun onAccountSelected(id: Long?) { _uiState.update { it.copy(accountId = id) } }
     fun onNotesChange(notes: String) { _uiState.update { it.copy(notes = notes) } }
 
@@ -121,18 +167,41 @@ class GoalEditorViewModel @Inject constructor(
         _uiState.update { it.copy(isSaving = true) }
 
         return try {
+            val contribution = state.calculatedContribution
             val goal = GoalEntity(
                 id = state.goalId ?: 0L,
                 name = state.name,
                 type = state.type,
                 targetAmount = target,
                 currentAmount = state.currentAmount.toDoubleOrNull() ?: 0.0,
-                monthlyContribution = state.monthlyContribution.toDoubleOrNull() ?: 0.0,
+                monthlyContribution = contribution,
                 deadline = state.deadline,
                 accountId = state.accountId,
                 notes = state.notes
             )
             val savedId = goalRepository.saveGoal(goal)
+            // Create/update recurring bill for goal contribution
+            if (contribution > 0) {
+                val billFrequency = when (state.contributionFrequency) {
+                    ContributionFrequency.WEEKLY -> com.lifepad.app.data.local.entity.BillFrequency.WEEKLY
+                    ContributionFrequency.BIWEEKLY -> com.lifepad.app.data.local.entity.BillFrequency.BIWEEKLY
+                    ContributionFrequency.MONTHLY -> com.lifepad.app.data.local.entity.BillFrequency.MONTHLY
+                }
+                val nextDue = System.currentTimeMillis() + when (state.contributionFrequency) {
+                    ContributionFrequency.WEEKLY -> 7L * 24 * 60 * 60 * 1000
+                    ContributionFrequency.BIWEEKLY -> 14L * 24 * 60 * 60 * 1000
+                    ContributionFrequency.MONTHLY -> 30L * 24 * 60 * 60 * 1000
+                }
+                val bill = com.lifepad.app.data.local.entity.RecurringBillEntity(
+                    name = "${state.name} (Goal)",
+                    amount = contribution,
+                    frequency = billFrequency,
+                    nextDueDate = nextDue,
+                    isConfirmed = true,
+                    notes = "Auto-created for goal: ${state.name}"
+                )
+                recurringBillRepository.saveBill(bill)
+            }
             _uiState.update { it.copy(goalId = savedId, isSaving = false) }
             savedId
         } catch (e: Exception) {

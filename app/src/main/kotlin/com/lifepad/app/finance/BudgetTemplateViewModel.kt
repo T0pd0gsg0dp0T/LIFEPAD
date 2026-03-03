@@ -36,7 +36,13 @@ class BudgetTemplateViewModel @Inject constructor(
     val uiState: StateFlow<BudgetTemplateUiState> = _uiState.asStateFlow()
 
     val categories: StateFlow<List<CategoryEntity>> = financeRepository.getAllCategories()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    init {
+        viewModelScope.launch {
+            categories.collect { updatePreview() }
+        }
+    }
 
     fun onIncomeChange(income: String) {
         if (income.isEmpty() || income.matches(Regex("^\\d*\\.?\\d*$"))) {

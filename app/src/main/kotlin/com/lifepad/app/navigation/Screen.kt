@@ -38,6 +38,7 @@ sealed class Screen(val route: String) {
     data object BudgetEditor : Screen("finance/budget?budgetId={budgetId}") {
         fun createRoute(budgetId: Long? = null) = "finance/budget?budgetId=${budgetId ?: 0}"
     }
+    data object BudgetList : Screen("finance/budgets")
     data object Assessment : Screen("journal/assessment")
     data object AssessmentHistory : Screen("journal/assessment/history")
     data object ThoughtJournal : Screen("journal/thought?entryId={entryId}") {

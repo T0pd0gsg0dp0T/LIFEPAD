@@ -43,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.ErrorSnackbarHost
 import com.lifepad.app.data.local.entity.GoalType
+import com.lifepad.app.finance.ContributionFrequency
 import com.lifepad.app.ui.theme.ExpenseColor
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -150,15 +151,35 @@ fun GoalEditorScreen(
                 singleLine = true
             )
 
-            OutlinedTextField(
-                value = uiState.monthlyContribution,
-                onValueChange = viewModel::onMonthlyContributionChange,
-                label = { Text("Monthly Contribution") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                supportingText = { Text("This amount will be reserved from your safe-to-spend") },
-                singleLine = true
-            )
+            // Contribution frequency
+            Text("Contribution Frequency", style = MaterialTheme.typography.labelMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ContributionFrequency.entries.forEach { freq ->
+                    FilterChip(
+                        selected = uiState.contributionFrequency == freq,
+                        onClick = { viewModel.onContributionFrequencyChange(freq) },
+                        label = { Text(freq.label) }
+                    )
+                }
+            }
+            if (uiState.calculatedContribution > 0) {
+                val fmt = java.text.NumberFormat.getCurrencyInstance()
+                androidx.compose.material3.OutlinedTextField(
+                    value = fmt.format(uiState.calculatedContribution),
+                    onValueChange = {},
+                    label = { Text("${uiState.contributionFrequency.label} Contribution") },
+                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    enabled = false,
+                    supportingText = { Text("Auto-calculated · will appear in Recurring Bills") }
+                )
+            } else if (uiState.deadline != null) {
+                Text(
+                    "Set target amount and current amount to see contribution",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             // Deadline
             Row(

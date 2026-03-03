@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -382,57 +384,62 @@ fun TransactionEditorScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 16.dp)
                 ) {
                     Text(
                         text = "Select Category",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
-
-                    filteredCategories.forEach { category ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable { viewModel.onCategorySelected(category.id) },
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (category.id == uiState.categoryId)
-                                    MaterialTheme.colorScheme.primaryContainer
-                                else
-                                    MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-                            Row(
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(filteredCategories) { category ->
+                            Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .clickable { viewModel.onCategorySelected(category.id) },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (category.id == uiState.categoryId)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                )
                             ) {
-                                Box(
+                                Row(
                                     modifier = Modifier
-                                        .size(32.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.surfaceVariant,
-                                            shape = MaterialTheme.shapes.small
-                                        ),
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    CategoryIcon(
-                                        icon = categoryIconForName(category.icon),
-                                        tint = androidx.compose.ui.graphics.Color(category.color)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                                shape = MaterialTheme.shapes.small
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CategoryIcon(
+                                            icon = categoryIconForName(category.icon),
+                                            tint = androidx.compose.ui.graphics.Color(category.color)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = category.name,
+                                        style = MaterialTheme.typography.bodyLarge
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = category.name,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
         }

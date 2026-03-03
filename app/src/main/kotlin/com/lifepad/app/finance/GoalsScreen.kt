@@ -160,7 +160,7 @@ fun GoalsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GoalCard(
+internal fun GoalCard(
     goal: GoalEntity,
     onClick: () -> Unit,
     onDelete: () -> Unit,

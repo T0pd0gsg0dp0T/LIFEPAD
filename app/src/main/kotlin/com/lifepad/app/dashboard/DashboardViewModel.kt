@@ -51,6 +51,8 @@ data class DashboardUiState(
     val recentNoteTitle: String? = null,
     val netBalance: Double = 0.0,
     val safeToSpendDaily: Double = 0.0,
+    val categorySpendingData: List<Pair<String, Float>> = emptyList(),
+    val spendingTrendPoints: List<com.lifepad.app.components.TrendPoint> = emptyList(),
     val isLoading: Boolean = true
 )
 
@@ -133,7 +135,8 @@ class DashboardViewModel @Inject constructor(
         val moodWidgetPeriod: MoodWidgetPeriod,
         val emotionFrequency: List<EmotionFrequencyRow>,
         val trapFrequency: List<TrapFrequencyRow>,
-        val safeToSpend: Double = 0.0
+        val safeToSpend: Double = 0.0,
+        val categories: List<com.lifepad.app.data.local.entity.CategoryEntity> = emptyList()
     )
 
     private val dashboardInputs: StateFlow<DashboardInputs> = combine(
@@ -184,6 +187,10 @@ class DashboardViewModel @Inject constructor(
         _safeToSpend
     ) { inputs, safeToSpend ->
         inputs.copy(safeToSpend = safeToSpend)
+    }.combine(
+        financeRepository.getAllCategories()
+    ) { inputs, categories ->
+        inputs.copy(categories = categories)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -199,7 +206,8 @@ class DashboardViewModel @Inject constructor(
             moodWidgetPeriod = MoodWidgetPeriod.MONTH,
             emotionFrequency = emptyList(),
             trapFrequency = emptyList(),
-            safeToSpend = 0.0
+            safeToSpend = 0.0,
+            categories = emptyList()
         )
     )
 
@@ -229,6 +237,8 @@ class DashboardViewModel @Inject constructor(
             confirmedBills = bills,
             forecastDays = 14
         )
+        val categorySpendingData = buildCategorySpending(inputs.transactions, inputs.categories)
+        val spendingTrendPoints = buildSpendingTrend(inputs.transactions)
 
         DashboardUiState(
             financeWidget = financeWidget,
@@ -249,6 +259,8 @@ class DashboardViewModel @Inject constructor(
             recentNoteTitle = recentNote?.title?.ifBlank { "Untitled" },
             netBalance = balance,
             safeToSpendDaily = inputs.safeToSpend,
+            categorySpendingData = categorySpendingData,
+            spendingTrendPoints = spendingTrendPoints,
             isLoading = false
         )
     }.stateIn(
@@ -449,4 +461,64 @@ class DashboardViewModel @Inject constructor(
         val day = cal.get(Calendar.DAY_OF_MONTH)
         return day.toString()
     }
+
+    private fun buildCategorySpending(
+        transactions: List<com.lifepad.app.data.local.entity.TransactionEntity>,
+        categories: List<com.lifepad.app.data.local.entity.CategoryEntity>
+    ): List<Pair<String, Float>> {
+        val cal = Calendar.getInstance()
+        val monthEnd = cal.timeInMillis
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val monthStart = cal.timeInMillis
+
+        val expenses = transactions.filter {
+            it.type == com.lifepad.app.data.local.entity.TransactionType.EXPENSE &&
+            it.transactionDate in monthStart..monthEnd
+        }
+        val total = expenses.sumOf { it.amount }
+        if (total == 0.0) return emptyList()
+
+        return expenses.groupBy { it.categoryId }
+            .map { (categoryId, txList) ->
+                val name = categories.firstOrNull { it.id == categoryId }?.name ?: "Other"
+                val amount = txList.sumOf { it.amount }
+                name to (amount / total * 100).toFloat()
+            }
+            .sortedByDescending { it.second }
+            .take(6)
+    }
+
+    private fun buildSpendingTrend(
+        transactions: List<com.lifepad.app.data.local.entity.TransactionEntity>
+    ): List<com.lifepad.app.components.TrendPoint> {
+        val dayMillis = 24 * 60 * 60 * 1000L
+        val days = 30
+        val endCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        val endMs = endCal.timeInMillis
+        val startMs = endMs - (days - 1) * dayMillis
+
+        val expenses = transactions.filter {
+            it.type == com.lifepad.app.data.local.entity.TransactionType.EXPENSE &&
+            it.transactionDate in startMs..endMs
+        }
+        if (expenses.isEmpty()) return emptyList()
+
+        val byDay = expenses.groupBy { dayStart(it.transactionDate) }
+        return (0 until days).mapNotNull { index ->
+            val dayMs = startMs + index * dayMillis
+            val total = byDay[dayStart(dayMs)]?.sumOf { it.amount }?.toFloat() ?: return@mapNotNull null
+            val label = formatShortDay(dayMs)
+            com.lifepad.app.components.TrendPoint(index = index.toFloat(), value = total, label = label)
+        }
+    }
+
 }

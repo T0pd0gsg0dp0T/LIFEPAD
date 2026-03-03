@@ -57,7 +57,11 @@ import com.lifepad.app.dashboard.PeriodComparison
 import com.lifepad.app.dashboard.PeriodSummary
 import com.lifepad.app.components.IncomeExpenseBarChart
 import com.lifepad.app.components.CashflowLineChart
-import com.lifepad.app.components.NetWorthLineChart
+import com.lifepad.app.components.SpendingPieChart
+import com.lifepad.app.components.SpendingTrendChart
+import com.lifepad.app.components.TrendPoint
+import com.lifepad.app.ui.theme.ExpenseColor
+import com.lifepad.app.ui.theme.IncomeColor
 import com.lifepad.app.settings.FinanceWidget
 import com.lifepad.app.settings.MoodWidget
 import com.lifepad.app.ui.theme.NotepadPrimary
@@ -167,11 +171,33 @@ fun DashboardScreen(
                                 CashflowLineChart(forecastPoints = uiState.cashflowPoints)
                             }
                         }
-                        FinanceWidget.NET_WORTH -> {
-                            if (uiState.netWorthSnapshots.isEmpty()) {
-                                EmptyCardText("No net worth snapshots yet")
+                        FinanceWidget.SPENDING_BY_CATEGORY -> {
+                            if (uiState.categorySpendingData.isEmpty()) {
+                                EmptyCardText("No transactions this month")
                             } else {
-                                NetWorthLineChart(snapshots = uiState.netWorthSnapshots)
+                                SpendingPieChart(data = uiState.categorySpendingData)
+                            }
+                        }
+                        FinanceWidget.SPENDING_TREND -> {
+                            if (uiState.spendingTrendPoints.isEmpty()) {
+                                EmptyCardText("No transactions yet")
+                            } else {
+                                SpendingTrendChart(dataPoints = uiState.spendingTrendPoints)
+                            }
+                        }
+                        FinanceWidget.DAILY_ALLOWANCE -> {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = currencyFormat.format(uiState.safeToSpendDaily),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (uiState.safeToSpendDaily >= 0) IncomeColor else ExpenseColor
+                                )
+                                Text(
+                                    text = "safe to spend today",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }

@@ -29,12 +29,10 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -105,19 +103,18 @@ fun RecurringBillsScreen(
         ) {
             // Detect recurring button
             item {
-                OutlinedButton(
+                androidx.compose.material3.TextButton(
                     onClick = viewModel::detectRecurring,
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isDetecting
                 ) {
                     if (uiState.isDetecting) {
-                        CircularProgressIndicator(modifier = Modifier.height(20.dp).width(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
+                        CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                     } else {
-                        Icon(Icons.Default.Search, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.height(18.dp).width(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                     }
-                    Text("Scan for Recurring Transactions")
+                    Text("Scan Transactions")
                 }
             }
 
@@ -156,8 +153,7 @@ fun RecurringBillsScreen(
                         bill = bill,
                         onClick = { onEditBill(bill.id) },
                         onDelete = { viewModel.deleteBill(bill.id) },
-                        onToggleEnabled = { viewModel.toggleEnabled(bill.id) },
-                        currencyFormat = currencyFormat,
+                            currencyFormat = currencyFormat,
                         dateFormat = dateFormat
                     )
                 }
@@ -183,7 +179,7 @@ fun RecurringBillsScreen(
 }
 
 @Composable
-private fun DetectedBillCard(
+internal fun DetectedBillCard(
     candidate: DetectedBill,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
@@ -239,11 +235,10 @@ private fun DetectedBillCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BillCard(
+internal fun BillCard(
     bill: RecurringBillWithCategory,
     onClick: () -> Unit,
     onDelete: () -> Unit,
-    onToggleEnabled: () -> Unit,
     currencyFormat: NumberFormat,
     dateFormat: SimpleDateFormat
 ) {
@@ -311,10 +306,7 @@ private fun BillCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Switch(
-                    checked = bill.isEnabled,
-                    onCheckedChange = { onToggleEnabled() }
-                )
+
             }
         }
     }

@@ -121,7 +121,9 @@ enum class FinanceIntervalSetting(val label: String) {
 enum class FinanceWidget(val label: String) {
     INCOME_EXPENSE("Income vs Expense"),
     CASHFLOW("Cashflow Forecast"),
-    NET_WORTH("Net Worth Trend");
+    SPENDING_BY_CATEGORY("Spending by Category"),
+    SPENDING_TREND("Spending Trend"),
+    DAILY_ALLOWANCE("Daily Allowance");
 
     companion object {
         fun fromName(name: String?): FinanceWidget {

@@ -11,6 +11,7 @@ import com.lifepad.app.dashboard.DashboardScreen
 import com.lifepad.app.data.graph.NodeType
 import com.lifepad.app.finance.AssetEditorScreen
 import com.lifepad.app.finance.BudgetEditorScreen
+import com.lifepad.app.finance.BudgetListScreen
 import com.lifepad.app.finance.BudgetTemplateScreen
 import com.lifepad.app.finance.FinanceInsightsScreen
 import com.lifepad.app.finance.FinanceScreen
@@ -411,14 +412,13 @@ fun LifepadNavHost(
                 onTransactionClick = { navController.navigate(Screen.TransactionDetail.createRoute(it)) },
                 onEditTransaction = { navController.navigate(Screen.TransactionEditor.createRoute(it)) },
                 onCreateTransaction = { navController.navigate(Screen.TransactionEditor.createRoute()) },
-                onManageBudgets = { navController.navigate(Screen.BudgetEditor.createRoute()) },
+                onManageBudgets = { navController.navigate(Screen.BudgetList.route) },
                 onBudgetClick = { navController.navigate(Screen.BudgetEditor.createRoute(it)) },
-                onNavigateToStats = { navController.navigate(Screen.FinanceStats.route) },
-                onNavigateToBills = { navController.navigate(Screen.RecurringBills.route) },
-                onNavigateToGoals = { navController.navigate(Screen.Goals.route) },
-                onNavigateToNetWorth = { navController.navigate(Screen.NetWorth.route) },
+                onCreateBill = { navController.navigate(Screen.RecurringBillEditor.createRoute()) },
+                onEditBill = { navController.navigate(Screen.RecurringBillEditor.createRoute(it)) },
+                onCreateGoal = { navController.navigate(Screen.GoalEditor.createRoute()) },
+                onEditGoal = { navController.navigate(Screen.GoalEditor.createRoute(it)) },
                 onNavigateToSafeToSpend = { navController.navigate(Screen.SafeToSpend.route) },
-                onNavigateToInsights = { navController.navigate(Screen.FinanceInsights.route) },
                 onNavigateToBudgetTemplates = { navController.navigate(Screen.BudgetTemplate.route) },
                 onNavigateToSearch = { navController.navigate(Screen.Search.createRoute()) },
                 onCreateCategory = { navController.navigate(Screen.CategoryEditor.createRoute()) },
@@ -490,6 +490,15 @@ fun LifepadNavHost(
         ) {
             BudgetEditorScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Budget List
+        composable(Screen.BudgetList.route) {
+            BudgetListScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onEditBudget = { navController.navigate(Screen.BudgetEditor.createRoute(it)) },
+                onCreateBudget = { navController.navigate(Screen.BudgetEditor.createRoute()) }
             )
         }
 

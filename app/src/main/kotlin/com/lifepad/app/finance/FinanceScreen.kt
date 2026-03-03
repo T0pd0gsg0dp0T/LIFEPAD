@@ -21,17 +21,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
@@ -40,10 +43,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -51,6 +58,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -69,11 +77,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.CategoryIcon
+import com.lifepad.app.components.CircularGoalProgress
 import com.lifepad.app.components.ErrorSnackbarHost
 import com.lifepad.app.components.HashtagChip
+import com.lifepad.app.components.InsightCard
 import com.lifepad.app.components.categoryIconForName
 import com.lifepad.app.data.local.entity.CategoryEntity
 import com.lifepad.app.data.local.entity.CategoryType
+import com.lifepad.app.data.local.entity.GoalType
 import com.lifepad.app.data.local.entity.TransactionEntity
 import com.lifepad.app.data.local.entity.TransactionType
 import com.lifepad.app.settings.FinanceIntervalSetting
@@ -96,12 +107,11 @@ fun FinanceScreen(
     onCreateTransaction: () -> Unit,
     onManageBudgets: () -> Unit = {},
     onBudgetClick: (Long) -> Unit = {},
-    onNavigateToStats: () -> Unit = {},
-    onNavigateToBills: () -> Unit = {},
-    onNavigateToGoals: () -> Unit = {},
-    onNavigateToNetWorth: () -> Unit = {},
+    onCreateBill: () -> Unit = {},
+    onEditBill: (Long) -> Unit = {},
+    onCreateGoal: () -> Unit = {},
+    onEditGoal: (Long) -> Unit = {},
     onNavigateToSafeToSpend: () -> Unit = {},
-    onNavigateToInsights: () -> Unit = {},
     onNavigateToBudgetTemplates: () -> Unit = {},
     onNavigateToSearch: (String?) -> Unit = {},
     onCreateCategory: () -> Unit = {},
@@ -113,11 +123,14 @@ fun FinanceScreen(
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var showCategoriesSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showCustomRangePicker by remember { mutableStateOf(false) }
     val filterSheetState = rememberModalBottomSheetState()
+    val categoriesSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val intervalLabel = uiState.interval.label
+    val tabs = listOf("Records", "Stats", "Bills", "Goals", "Insights")
 
     Scaffold(
         topBar = {
@@ -140,10 +153,10 @@ fun FinanceScreen(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Statistics") },
+                            text = { Text("Categories") },
                             onClick = {
                                 showMenu = false
-                                onNavigateToStats()
+                                showCategoriesSheet = true
                             }
                         )
                         DropdownMenuItem(
@@ -154,38 +167,10 @@ fun FinanceScreen(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Recurring Bills") },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToBills()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Goals") },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToGoals()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Net Worth") },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToNetWorth()
-                            }
-                        )
-                        DropdownMenuItem(
                             text = { Text("Safe to Spend") },
                             onClick = {
                                 showMenu = false
                                 onNavigateToSafeToSpend()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Insights") },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToInsights()
                             }
                         )
                         DropdownMenuItem(
@@ -200,24 +185,32 @@ fun FinanceScreen(
             )
         },
         floatingActionButton = {
-    when (selectedTab) {
-        0 -> {
-            androidx.compose.material3.FloatingActionButton(
-                onClick = onCreateTransaction,
-                modifier = Modifier.testTag("fab_create_transaction")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add record")
+            when (selectedTab) {
+                0 -> {
+                    androidx.compose.material3.FloatingActionButton(
+                        onClick = onCreateTransaction,
+                        modifier = Modifier.testTag("fab_create_transaction")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add record")
+                    }
+                }
+                2 -> {
+                    androidx.compose.material3.FloatingActionButton(
+                        onClick = onCreateBill,
+                        modifier = Modifier.testTag("fab_create_bill")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add bill")
+                    }
+                }
+                3 -> {
+                    androidx.compose.material3.FloatingActionButton(
+                        onClick = onCreateGoal,
+                        modifier = Modifier.testTag("fab_create_goal")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add goal")
+                    }
+                }
             }
-        }
-        1 -> {
-            androidx.compose.material3.FloatingActionButton(
-                onClick = onCreateCategory,
-                modifier = Modifier.testTag("fab_create_category")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add category")
-            }
-        }
-    }
         },
         snackbarHost = {
             ErrorSnackbarHost(
@@ -233,68 +226,37 @@ fun FinanceScreen(
                 .testTag("screen_finance")
         ) {
             TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = {
-                        Text(
-                            text = "Records",
-                            maxLines = 1,
-                            softWrap = false,
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = {
-                        Text(
-                            text = "Categories",
-                            maxLines = 1,
-                            softWrap = false,
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    text = {
-                        Text(
-                            text = "Stats",
-                            maxLines = 1,
-                            softWrap = false,
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
-                        )
-                    }
-                )
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = {
+                            Text(
+                                text = title,
+                                maxLines = 1,
+                                softWrap = false,
+                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
+                            )
+                        }
+                    )
+                }
             }
 
             when (selectedTab) {
-                0 -> {
-                    RecordsTab(
-                        uiState = uiState,
-                        currencyFormat = currencyFormat,
-                        intervalLabel = intervalLabel,
-                        onIntervalChange = { viewModel.setInterval(it) },
-                        onCustomRange = { showCustomRangePicker = true },
-                        onTransactionClick = onTransactionClick,
-                        onTransactionEdit = onEditTransaction,
-                        onHashtagClick = { onNavigateToSearch("#$it") }
-                    )
-                }
-                1 -> {
-                    CategoriesTab(
-                        uiState = uiState,
-                        onEditCategory = onEditCategory,
-                        onDeleteCategory = viewModel::deleteCategory,
-                        onReorder = viewModel::updateCategoryOrder
-                    )
-                }
-                2 -> {
-                    StatsTab()
-                }
+                0 -> RecordsTab(
+                    uiState = uiState,
+                    currencyFormat = currencyFormat,
+                    intervalLabel = intervalLabel,
+                    onIntervalChange = { viewModel.setInterval(it) },
+                    onCustomRange = { showCustomRangePicker = true },
+                    onTransactionClick = onTransactionClick,
+                    onTransactionEdit = onEditTransaction,
+                    onHashtagClick = { onNavigateToSearch("#$it") }
+                )
+                1 -> StatsTab()
+                2 -> BillsTab(onEditBill = onEditBill)
+                3 -> GoalsTab(onEditGoal = onEditGoal)
+                4 -> InsightsTab()
             }
         }
 
@@ -311,6 +273,39 @@ fun FinanceScreen(
                     onClearFilters = viewModel::clearFilters,
                     onDismiss = { showFilterSheet = false }
                 )
+            }
+        }
+
+        if (showCategoriesSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showCategoriesSheet = false },
+                sheetState = categoriesSheetState
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Categories", style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = {
+                            showCategoriesSheet = false
+                            onCreateCategory()
+                        }) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("New")
+                        }
+                    }
+                    CategoriesTab(
+                        uiState = uiState,
+                        onEditCategory = onEditCategory,
+                        onDeleteCategory = viewModel::deleteCategory,
+                        onReorder = viewModel::updateCategoryOrder
+                    )
+                }
             }
         }
 
@@ -598,7 +593,7 @@ private fun CategoriesTab(
         CategoryFilter.INCOME -> uiState.categories.filter { it.type == CategoryType.INCOME && !it.isArchived }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         LazyRow(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -612,7 +607,12 @@ private fun CategoriesTab(
             }
         }
         if (categories.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Text("No categories")
             }
         } else {
@@ -746,8 +746,190 @@ private fun StatsTab(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BillsTab(
+    onEditBill: (Long) -> Unit,
+    viewModel: RecurringBillsViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currencyFormat = NumberFormat.getCurrencyInstance()
+    val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 92.dp, start = 16.dp, end = 16.dp, top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            TextButton(
+                onClick = viewModel::detectRecurring,
+                enabled = !uiState.isDetecting
+            ) {
+                if (uiState.isDetecting) {
+                    CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                } else {
+                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.height(18.dp).width(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text("Scan Transactions")
+            }
+        }
+
+        if (uiState.detectedCandidates.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Detected (${uiState.detectedCandidates.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            items(uiState.detectedCandidates, key = { it.name }) { candidate ->
+                DetectedBillCard(
+                    candidate = candidate,
+                    onConfirm = { viewModel.confirmBill(candidate) },
+                    onDismiss = { viewModel.dismissCandidate(candidate) },
+                    currencyFormat = currencyFormat
+                )
+            }
+        }
+
+        if (uiState.bills.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Confirmed Bills (${uiState.bills.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            items(uiState.bills, key = { it.id }) { bill ->
+                BillCard(
+                    bill = bill,
+                    onClick = { onEditBill(bill.id) },
+                    onDelete = { viewModel.deleteBill(bill.id) },
+                    currencyFormat = currencyFormat,
+                    dateFormat = dateFormat
+                )
+            }
+        }
+
+        if (uiState.bills.isEmpty() && uiState.detectedCandidates.isEmpty() && !uiState.isLoading) {
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("No recurring bills", style = MaterialTheme.typography.headlineSmall)
+                        Text("Tap + to add or scan your transactions", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GoalsTab(
+    onEditGoal: (Long) -> Unit,
+    viewModel: GoalsViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currencyFormat = NumberFormat.getCurrencyInstance()
+
+    if (uiState.goals.isEmpty() && !uiState.isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("No goals yet", style = MaterialTheme.typography.headlineSmall)
+                Text("Tap + to create a financial goal", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 92.dp, start = 16.dp, end = 16.dp, top = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (uiState.goals.isNotEmpty()) {
+                item {
+                    val totalTarget = uiState.goals.sumOf { it.targetAmount }
+                    val totalCurrent = uiState.goals.sumOf { it.currentAmount }
+                    val aggProgress = if (totalTarget > 0) (totalCurrent / totalTarget).toFloat() else 0f
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Overall Progress", style = MaterialTheme.typography.labelLarge)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LinearProgressIndicator(progress = { aggProgress }, modifier = Modifier.fillMaxWidth())
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${currencyFormat.format(totalCurrent)} / ${currencyFormat.format(totalTarget)}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+            items(uiState.goals, key = { it.id }) { goal ->
+                GoalCard(
+                    goal = goal,
+                    onClick = { onEditGoal(goal.id) },
+                    onDelete = { viewModel.deleteGoal(goal.id) },
+                    currencyFormat = currencyFormat
+                )
+            }
+        }
+    }
+}
 
 @Composable
+private fun InsightsTab(
+    viewModel: FinanceInsightsViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    if (uiState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else if (uiState.insights.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("No insights yet", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Add more transactions to generate insights",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(uiState.insights) { insight ->
+                InsightCard(insight = insight, compact = false)
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun FilterSheet(
     uiState: FinanceHomeUiState,
     onToggleCategory: (Long) -> Unit,
