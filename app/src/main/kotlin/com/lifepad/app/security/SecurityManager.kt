@@ -82,12 +82,6 @@ class SecurityManager @Inject constructor(
     }
 
     fun setPin(pin: String) {
-        // Ensure KDF salt exists in plain prefs (survives data-clear)
-        if (!plainPrefs.contains(PLAIN_KEY_KDF_SALT)) {
-            plainPrefs.edit().putString(PLAIN_KEY_KDF_SALT, generateSalt()).apply()
-        }
-        val kdfSalt = plainPrefs.getString(PLAIN_KEY_KDF_SALT, null)!!
-
         val pinSalt = generateSalt()
         val hash = hashPinPbkdf2(pin, pinSalt)
         prefs.edit()
@@ -103,12 +97,7 @@ class SecurityManager @Inject constructor(
             prefs.edit().putString(KEY_DB_PASSPHRASE, passphrase).apply()
         }
 
-        // Store PIN-encrypted passphrase backup in plain prefs (Fix #1)
-        val currentPassphrase = prefs.getString(KEY_DB_PASSPHRASE, null)
-        if (currentPassphrase != null) {
-            val backup = encryptPassphraseWithPin(currentPassphrase, pin, kdfSalt)
-            plainPrefs.edit().putString(PLAIN_KEY_PASSPHRASE_BACKUP, backup).apply()
-        }
+        storePassphraseBackup(pin, overwrite = true)
     }
 
     fun verifyPin(pin: String): Boolean {
@@ -116,24 +105,57 @@ class SecurityManager @Inject constructor(
 
         // Check for legacy SHA-256 hash — upgrade transparently if matched (Fix #4 migration)
         val legacyHash = prefs.getString(KEY_PIN_HASH_LEGACY, null)
-        if (legacyHash != null) {
-            if (hashPinSha256Legacy(pin, salt) == legacyHash) {
-                upgradePinHashToPbkdf2(pin, salt)
-                return true
-            }
+        if (legacyHash != null && hashPinSha256Legacy(pin, salt) == legacyHash) {
+            upgradePinHashToPbkdf2(pin, salt)
+            storePassphraseBackup(pin)
+            return true
         }
 
         val storedHash = prefs.getString(KEY_PIN_HASH, null) ?: return false
-        return hashPinPbkdf2(pin, salt) == storedHash
+        val pbkdf2Hash = hashPinPbkdf2OrNull(pin, salt)
+        if (pbkdf2Hash == storedHash) {
+            storePassphraseBackup(pin)
+            return true
+        }
+
+        // Older builds stored the legacy SHA-256 value under KEY_PIN_HASH itself.
+        // Accept it once, then replace it with the PBKDF2 hash expected by current builds.
+        if (hashPinSha256Legacy(pin, salt) == storedHash) {
+            upgradePinHashToPbkdf2(pin, salt)
+            storePassphraseBackup(pin)
+            return true
+        }
+
+        return false
     }
 
     private fun upgradePinHashToPbkdf2(pin: String, existingSalt: String) {
-        val newHash = hashPinPbkdf2(pin, existingSalt)
+        val salt = if (existingSalt.isHexString()) existingSalt else generateSalt()
+        val newHash = hashPinPbkdf2(pin, salt)
         prefs.edit()
             .putString(KEY_PIN_HASH, newHash)
+            .putString(KEY_PIN_SALT, salt)
             .remove(KEY_PIN_HASH_LEGACY)
             .apply()
         Log.i(TAG, "PIN hash upgraded from SHA-256 to PBKDF2")
+    }
+
+    private fun storePassphraseBackup(pin: String, overwrite: Boolean = false) {
+        if (!overwrite && plainPrefs.contains(PLAIN_KEY_PASSPHRASE_BACKUP)) return
+
+        val currentPassphrase = prefs.getString(KEY_DB_PASSPHRASE, null) ?: return
+        val kdfSalt = getOrCreateKdfSalt()
+        val backup = encryptPassphraseWithPin(currentPassphrase, pin, kdfSalt)
+        plainPrefs.edit().putString(PLAIN_KEY_PASSPHRASE_BACKUP, backup).apply()
+    }
+
+    private fun getOrCreateKdfSalt(): String {
+        val existingSalt = plainPrefs.getString(PLAIN_KEY_KDF_SALT, null)
+        if (existingSalt != null) return existingSalt
+
+        val salt = generateSalt()
+        plainPrefs.edit().putString(PLAIN_KEY_KDF_SALT, salt).apply()
+        return salt
     }
 
     // ─── Passphrase backup / recovery (Fix #1) ─────────────────────────────────
@@ -411,6 +433,15 @@ class SecurityManager @Inject constructor(
         return factory.generateSecret(spec).encoded.toHex()
     }
 
+    private fun hashPinPbkdf2OrNull(pin: String, salt: String): String? {
+        return try {
+            hashPinPbkdf2(pin, salt)
+        } catch (e: Exception) {
+            Log.w(TAG, "Stored PIN salt is not compatible with PBKDF2; trying legacy verification", e)
+            null
+        }
+    }
+
     /** Legacy SHA-256 hash — used only for transparent migration detection. */
     private fun hashPinSha256Legacy(pin: String, salt: String): String {
         val digest = java.security.MessageDigest.getInstance("SHA-256")
@@ -464,6 +495,10 @@ class SecurityManager @Inject constructor(
         return ByteArray(length / 2) { i ->
             ((this[i * 2].digitToInt(16) shl 4) + this[i * 2 + 1].digitToInt(16)).toByte()
         }
+    }
+
+    private fun String.isHexString(): Boolean {
+        return length % 2 == 0 && all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
     }
 
     // ─── Encrypted prefs creation (Fix #5) ────────────────────────────────────
