@@ -28,16 +28,36 @@ class PinViewModel @Inject constructor(
     val isPinSet: Boolean get() = securityManager.isPinSet()
 
     init {
-        // Restore persistent lockout state on every launch
+        syncLockoutState()
+    }
+
+    private fun syncLockoutState(): Boolean {
         val locked = securityManager.isLockedOut()
-        val remaining = securityManager.getAttemptsRemaining()
-        if (locked || remaining <= 0) {
+        var remaining = securityManager.getAttemptsRemaining()
+
+        if (!locked && remaining <= 0) {
+            securityManager.resetFailedAttempts()
+            remaining = securityManager.getAttemptsRemaining()
+        }
+
+        if (locked) {
             _uiState.update {
                 it.copy(isLocked = true, attemptsRemaining = 0, errorMessage = buildLockoutMessage())
             }
         } else {
-            _uiState.update { it.copy(attemptsRemaining = remaining) }
+            _uiState.update { state ->
+                state.copy(
+                    attemptsRemaining = remaining,
+                    isLocked = false,
+                    errorMessage = if (state.errorMessage?.startsWith("Too many attempts.") == true) {
+                        null
+                    } else {
+                        state.errorMessage
+                    }
+                )
+            }
         }
+        return locked
     }
 
     private fun buildLockoutMessage(): String {
@@ -51,6 +71,8 @@ class PinViewModel @Inject constructor(
     }
 
     fun onDigitEntered(digit: String) {
+        if (securityManager.isPinSet() && syncLockoutState()) return
+
         _uiState.update { state ->
             val currentPin = if (state.isConfirmStep) state.confirmPin else state.pin
             if (currentPin.length >= 6) return@update state
@@ -113,8 +135,9 @@ class PinViewModel @Inject constructor(
 
     // For PIN unlock: verify
     fun onUnlockSubmit(): Boolean {
+        if (syncLockoutState()) return false
+
         val state = _uiState.value
-        if (state.isLocked) return false
         if (state.pin.length < 4) {
             _uiState.update { it.copy(errorMessage = "Enter your PIN") }
             return false

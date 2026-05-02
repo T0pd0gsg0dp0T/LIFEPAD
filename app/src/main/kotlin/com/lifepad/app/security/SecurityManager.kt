@@ -369,15 +369,29 @@ class SecurityManager @Inject constructor(
             val elapsed = SystemClock.elapsedRealtime() - elapsedStart
             if (elapsed >= 0L) {
                 // Elapsed-realtime path: resistant to wall-clock manipulation
-                return elapsed < duration
+                return if (elapsed < duration) {
+                    true
+                } else {
+                    resetFailedAttempts()
+                    false
+                }
             }
             // elapsed < 0 means device rebooted since lockout was recorded — fall through
         }
 
         // Post-reboot fallback: use wall-clock start time
         val wallClockStart = prefs.getLong(KEY_LOCKOUT_WALLCLOCK_START, 0L)
-        if (wallClockStart <= 0L) return false
-        return (System.currentTimeMillis() - wallClockStart) < duration
+        if (wallClockStart <= 0L) {
+            resetFailedAttempts()
+            return false
+        }
+
+        return if ((System.currentTimeMillis() - wallClockStart) < duration) {
+            true
+        } else {
+            resetFailedAttempts()
+            false
+        }
     }
 
     fun getLockoutRemainingMs(): Long {
