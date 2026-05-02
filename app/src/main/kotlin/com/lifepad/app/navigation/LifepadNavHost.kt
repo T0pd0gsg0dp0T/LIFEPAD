@@ -69,7 +69,7 @@ fun LifepadNavHost(
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                 onCreateNote = { navController.navigate(Screen.NoteEditor.createRoute()) },
                 onCreateEntry = { template ->
-                    navController.navigate(Screen.JournalEditor.createRoute(template = template))
+                    navigateToJournalTemplate(navController, template, null)
                 },
                 onCreateTransaction = { navController.navigate(Screen.TransactionEditor.createRoute()) }
             )

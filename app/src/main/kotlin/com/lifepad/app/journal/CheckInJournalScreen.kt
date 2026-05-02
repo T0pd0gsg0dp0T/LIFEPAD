@@ -1,5 +1,6 @@
 package com.lifepad.app.journal
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,10 +24,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -50,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lifepad.app.components.GuidedStepHeader
 import com.lifepad.app.components.MoodSelector
 import com.lifepad.app.components.ReminderDialog
 import com.lifepad.app.components.StepperIndicator
@@ -71,6 +75,16 @@ fun CheckInJournalScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val steps = listOf("Mood", "Energy", "Stress", "Notes")
+    val hourOfDay = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    val partOfDay = when (hourOfDay) {
+        in 5..11 -> "morning"
+        in 12..16 -> "afternoon"
+        else -> "evening"
+    }
+
+    BackHandler {
+        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+    }
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) onNavigateBack()
@@ -90,7 +104,9 @@ fun CheckInJournalScreen(
             TopAppBar(
                 title = { Text("Check-in") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -109,7 +125,6 @@ fun CheckInJournalScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        // Date picker dialog
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = uiState.entryDate
@@ -153,9 +168,6 @@ fun CheckInJournalScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(scrollState)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -175,56 +187,98 @@ fun CheckInJournalScreen(
                     }
                 }
 
-                StepperIndicator(steps = steps, currentStep = currentStep)
+                StepperIndicator(
+                    steps = steps,
+                    currentStep = currentStep,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
 
-                when (currentStep) {
-                    0 -> {
-                        Text("How are you feeling?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        MoodSelector(
-                            selectedMood = uiState.mood,
-                            onMoodSelected = viewModel::onMoodChange
-                        )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    when (currentStep) {
+                        0 -> {
+                            GuidedStepHeader(
+                                title = "How are you this $partOfDay?",
+                                coaching = "Pick the option that feels closest to where you are right now. Even a quick check-in builds self-awareness over time."
+                            )
+                            MoodSelector(
+                                selectedMood = uiState.mood,
+                                onMoodSelected = viewModel::onMoodChange
+                            )
+                        }
+                        1 -> {
+                            GuidedStepHeader(
+                                title = "How's your energy?",
+                                coaching = "Energy and mood travel together but aren't the same. You can be calm and tired, or anxious and wired. Slide to wherever you are right now."
+                            )
+                            RatingSlider(
+                                label = "Energy",
+                                value = uiState.energy,
+                                onValueChange = viewModel::onEnergyChange
+                            )
+                        }
+                        2 -> {
+                            GuidedStepHeader(
+                                title = "How tense or stressed do you feel?",
+                                coaching = "Naming stress lowers it. Notice your shoulders, jaw, breath. Where are you on the dial right now?"
+                            )
+                            RatingSlider(
+                                label = "Stress",
+                                value = uiState.stress,
+                                onValueChange = viewModel::onStressChange
+                            )
+                        }
+                        else -> {
+                            GuidedStepHeader(
+                                title = "What's been on your mind?",
+                                coaching = "What people, places, and activities are having an impact on your day? A quick line about what's going on helps you spot patterns over time."
+                            )
+                            OutlinedTextField(
+                                value = uiState.notes,
+                                onValueChange = viewModel::onNotesChange,
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                placeholder = { Text("e.g., Slept poorly. Big meeting at 2pm.") }
+                            )
+                        }
                     }
-                    1 -> {
-                        RatingSlider(
-                            label = "Energy",
-                            value = uiState.energy,
-                            onValueChange = viewModel::onEnergyChange
-                        )
-                    }
-                    2 -> {
-                        RatingSlider(
-                            label = "Stress",
-                            value = uiState.stress,
-                            onValueChange = viewModel::onStressChange
-                        )
-                    }
-                    else -> {
-                        Text("Anything else you want to note?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = uiState.notes,
-                            onValueChange = viewModel::onNotesChange,
-                            modifier = Modifier.fillMaxWidth().height(140.dp),
-                            placeholder = { Text("Notes") }
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(onClick = { if (currentStep > 0) currentStep -= 1 }, enabled = currentStep > 0) {
-                        Text("Back")
-                    }
+                HorizontalDivider()
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (currentStep > 0) {
+                        OutlinedButton(
+                            onClick = { currentStep -= 1 },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Back")
+                        }
+                    }
                     if (currentStep < steps.lastIndex) {
-                        Button(onClick = { currentStep += 1 }) {
+                        Button(
+                            onClick = { currentStep += 1 },
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Text("Next")
                         }
                     } else {
-                        Button(onClick = { viewModel.saveEntry() }, enabled = !uiState.isSaving) {
+                        Button(
+                            onClick = { viewModel.saveEntry() },
+                            modifier = Modifier.weight(1f),
+                            enabled = !uiState.isSaving
+                        ) {
                             if (uiState.isSaving) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.height(20.dp),

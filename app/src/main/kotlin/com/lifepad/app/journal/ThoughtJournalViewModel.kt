@@ -46,7 +46,7 @@ data class ThoughtJournalUiState(
     val isSaved: Boolean = false,
     val errorMessage: String? = null
 ) {
-    val stepLabels = listOf("Situation", "Emotions", "Thoughts", "Evidence", "Reframe", "Re-rate")
+    val stepLabels = listOf("Get started", "Feelings", "Catch", "Check", "Change", "Reflect")
     val totalSteps = stepLabels.size
 }
 

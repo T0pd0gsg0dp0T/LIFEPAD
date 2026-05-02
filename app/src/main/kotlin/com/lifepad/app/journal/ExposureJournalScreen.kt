@@ -1,5 +1,6 @@
 package com.lifepad.app.journal
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -44,11 +46,11 @@ import androidx.compose.runtime.setValue
 import com.lifepad.app.components.TimePickerDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.EmotionSelector
+import com.lifepad.app.components.GuidedStepHeader
 import com.lifepad.app.components.MoodSelector
 import com.lifepad.app.components.SudsRatingBar
 import com.lifepad.app.components.StepperIndicator
@@ -65,7 +67,11 @@ fun ExposureJournalScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
-    val steps = listOf("Fear", "Before", "Plan", "After")
+    val steps = listOf("Get started", "Broaden", "Target", "Reflect")
+
+    BackHandler {
+        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+    }
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) onNavigateBack()
@@ -87,7 +93,9 @@ fun ExposureJournalScreen(
             TopAppBar(
                 title = { Text("Exposure Journal") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -95,7 +103,6 @@ fun ExposureJournalScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        // Date picker dialog
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = uiState.entryDate
@@ -142,9 +149,6 @@ fun ExposureJournalScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(scrollState)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -166,128 +170,137 @@ fun ExposureJournalScreen(
 
                 StepperIndicator(
                     steps = steps,
-                    currentStep = currentStep
+                    currentStep = currentStep,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
 
-                when (currentStep) {
-                    0 -> {
-                        Text(
-                            text = "What fear are you facing?",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        OutlinedTextField(
-                            value = uiState.fearDescription,
-                            onValueChange = { viewModel.onFearDescriptionChange(it) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            placeholder = { Text("Describe the fear or anxiety-provoking situation...") }
-                        )
-                        OutlinedTextField(
-                            value = uiState.avoidanceBehavior,
-                            onValueChange = { viewModel.onAvoidanceBehaviorChange(it) },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("How have you been avoiding this?") },
-                            placeholder = { Text("e.g., Not going to social events, avoiding phone calls...") }
-                        )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    when (currentStep) {
+                        0 -> {
+                            GuidedStepHeader(
+                                title = "Get started",
+                                coaching = "Before we get into the details, briefly describe what's on your mind. Well done taking initiative to journal today."
+                            )
+                            OutlinedTextField(
+                                value = uiState.fearDescription,
+                                onValueChange = { viewModel.onFearDescriptionChange(it) },
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                placeholder = { Text("Briefly describe what's on your mind") }
+                            )
+                            OutlinedTextField(
+                                value = uiState.avoidanceBehavior,
+                                onValueChange = { viewModel.onAvoidanceBehaviorChange(it) },
+                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                placeholder = { Text("How are you avoiding it? e.g., Staying silent, leaving early, making excuses...") }
+                            )
+                        }
+                        1 -> {
+                            GuidedStepHeader(
+                                title = "Broaden your perspective",
+                                coaching = "Next, let's explore any related avoidance patterns. List 2–3 situations you avoid that might be driven by the same fear. The purpose is to broaden your perspective, which will help you define the underlying fear in the next step.\n\nCapture how you feel right now so you can compare afterward."
+                            )
+                            Text(
+                                text = "Mood right now",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            MoodSelector(
+                                selectedMood = uiState.moodBefore,
+                                onMoodSelected = { viewModel.onMoodBeforeChange(it) }
+                            )
+                            EmotionSelector(
+                                emotions = uiState.emotionsBefore,
+                                onEmotionsChange = { viewModel.onEmotionsBeforeChange(it) },
+                                label = "Which emotions are showing up? (tap to add, drag to set intensity)"
+                            )
+                            SudsRatingBar(
+                                label = "Distress level (SUDS, 0-100)",
+                                value = uiState.sudsBefore,
+                                onValueChange = { viewModel.onSudsBeforeChange(it) }
+                            )
+                        }
+                        2 -> {
+                            GuidedStepHeader(
+                                title = "Capture your target feared outcome",
+                                coaching = "Define the core fear in one sentence. Look across the avoidances and feared situation you've outlined and identify the single, underlying fear that ties them all together."
+                            )
+                            OutlinedTextField(
+                                value = uiState.exposurePlan,
+                                onValueChange = { viewModel.onExposurePlanChange(it) },
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                placeholder = { Text("Capture your target feared outcome") }
+                            )
+                            SudsRatingBar(
+                                label = "Distress level during (rate after you do it)",
+                                value = uiState.sudsDuring,
+                                onValueChange = { viewModel.onSudsDuringChange(it) }
+                            )
+                        }
+                        else -> {
+                            GuidedStepHeader(
+                                title = "Take a moment to reflect",
+                                coaching = "The point isn't to feel zero anxiety — it's to gather evidence that you can tolerate it. Compare what you feared with what really happened."
+                            )
+                            SudsRatingBar(
+                                label = "Distress level after",
+                                value = uiState.sudsAfter,
+                                onValueChange = { viewModel.onSudsAfterChange(it) }
+                            )
+                            OutlinedTextField(
+                                value = uiState.reflection,
+                                onValueChange = { viewModel.onReflectionChange(it) },
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                placeholder = { Text("What actually happened? What did you learn? What surprised you?") }
+                            )
+                            Text(
+                                text = "Mood now",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            MoodSelector(
+                                selectedMood = uiState.moodAfter,
+                                onMoodSelected = { viewModel.onMoodAfterChange(it) }
+                            )
+                            EmotionSelector(
+                                emotions = uiState.emotionsAfter,
+                                onEmotionsChange = { viewModel.onEmotionsAfterChange(it) },
+                                label = "Emotions now"
+                            )
+                        }
                     }
-                    1 -> {
-                        Text(
-                            text = "Before Exposure",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        MoodSelector(
-                            selectedMood = uiState.moodBefore,
-                            onMoodSelected = { viewModel.onMoodBeforeChange(it) }
-                        )
-                        EmotionSelector(
-                            emotions = uiState.emotionsBefore,
-                            onEmotionsChange = { viewModel.onEmotionsBeforeChange(it) },
-                            label = "Emotions before"
-                        )
-                        SudsRatingBar(
-                            label = "Distress level before",
-                            value = uiState.sudsBefore,
-                            onValueChange = { viewModel.onSudsBeforeChange(it) }
-                        )
-                    }
-                    2 -> {
-                        Text(
-                            text = "Exposure plan",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        OutlinedTextField(
-                            value = uiState.exposurePlan,
-                            onValueChange = { viewModel.onExposurePlanChange(it) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            placeholder = { Text("What will you do? Be specific about your steps...") }
-                        )
-                        SudsRatingBar(
-                            label = "Distress level during",
-                            value = uiState.sudsDuring,
-                            onValueChange = { viewModel.onSudsDuringChange(it) }
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = "After Exposure",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        SudsRatingBar(
-                            label = "Distress level after",
-                            value = uiState.sudsAfter,
-                            onValueChange = { viewModel.onSudsAfterChange(it) }
-                        )
-                        OutlinedTextField(
-                            value = uiState.reflection,
-                            onValueChange = { viewModel.onReflectionChange(it) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            label = { Text("Reflection") },
-                            placeholder = { Text("What actually happened? What did you learn?") }
-                        )
-                        MoodSelector(
-                            selectedMood = uiState.moodAfter,
-                            onMoodSelected = { viewModel.onMoodAfterChange(it) }
-                        )
-                        EmotionSelector(
-                            emotions = uiState.emotionsAfter,
-                            onEmotionsChange = { viewModel.onEmotionsAfterChange(it) },
-                            label = "Emotions after"
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 HorizontalDivider()
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Button(
-                        onClick = { if (currentStep > 0) currentStep -= 1 },
-                        enabled = currentStep > 0
-                    ) {
-                        Text("Back")
+                    if (currentStep > 0) {
+                        OutlinedButton(
+                            onClick = { currentStep -= 1 },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Back")
+                        }
                     }
-
                     if (currentStep < steps.lastIndex) {
                         val canProceed = when (currentStep) {
                             0 -> uiState.fearDescription.isNotBlank()
-                            1 -> true
                             2 -> uiState.exposurePlan.isNotBlank()
                             else -> true
                         }
                         Button(
                             onClick = { currentStep += 1 },
+                            modifier = Modifier.weight(1f),
                             enabled = canProceed
                         ) {
                             Text("Next")
@@ -295,6 +308,7 @@ fun ExposureJournalScreen(
                     } else {
                         Button(
                             onClick = { viewModel.saveEntry() },
+                            modifier = Modifier.weight(1f),
                             enabled = uiState.fearDescription.isNotBlank() && !uiState.isSaving
                         ) {
                             if (uiState.isSaving) {
@@ -309,8 +323,6 @@ fun ExposureJournalScreen(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

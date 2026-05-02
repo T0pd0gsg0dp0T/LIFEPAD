@@ -1,5 +1,6 @@
 package com.lifepad.app.journal
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,10 +24,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -45,10 +48,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lifepad.app.components.GuidedStepHeader
 import com.lifepad.app.components.MoodSelector
 import com.lifepad.app.components.ReminderDialog
 import com.lifepad.app.components.StepperIndicator
@@ -70,6 +73,10 @@ fun GratitudeJournalScreen(
     val scrollState = rememberScrollState()
     val steps = listOf("List", "Meaning", "Mood")
 
+    BackHandler {
+        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+    }
+
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) onNavigateBack()
     }
@@ -90,7 +97,9 @@ fun GratitudeJournalScreen(
             TopAppBar(
                 title = { Text("Gratitude") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -109,7 +118,6 @@ fun GratitudeJournalScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        // Date picker dialog
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = uiState.entryDate
@@ -153,9 +161,6 @@ fun GratitudeJournalScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(scrollState)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -175,73 +180,114 @@ fun GratitudeJournalScreen(
                     }
                 }
 
-                StepperIndicator(steps = steps, currentStep = currentStep)
+                StepperIndicator(
+                    steps = steps,
+                    currentStep = currentStep,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
 
-                when (currentStep) {
-                    0 -> {
-                        Text("What are three things you're grateful for?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = uiState.itemOne,
-                            onValueChange = viewModel::onItemOneChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Gratitude #1") }
-                        )
-                        OutlinedTextField(
-                            value = uiState.itemTwo,
-                            onValueChange = viewModel::onItemTwoChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Gratitude #2") }
-                        )
-                        OutlinedTextField(
-                            value = uiState.itemThree,
-                            onValueChange = viewModel::onItemThreeChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Gratitude #3") }
-                        )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    when (currentStep) {
+                        0 -> {
+                            GuidedStepHeader(
+                                title = "Three things you're grateful for",
+                                coaching = "Specific beats abstract. \"My partner\" is fine, but \"the way she made me laugh during dinner\" rewires the brain more. Small, recent, vivid."
+                            )
+                            OutlinedTextField(
+                                value = uiState.itemOne,
+                                onValueChange = viewModel::onItemOneChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("First thing") },
+                                placeholder = { Text("e.g., The hot shower this morning.") }
+                            )
+                            OutlinedTextField(
+                                value = uiState.itemTwo,
+                                onValueChange = viewModel::onItemTwoChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Second thing") },
+                                placeholder = { Text("e.g., A funny text from a friend.") }
+                            )
+                            OutlinedTextField(
+                                value = uiState.itemThree,
+                                onValueChange = viewModel::onItemThreeChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Third thing") },
+                                placeholder = { Text("e.g., Finishing a hard task at work.") }
+                            )
+                        }
+                        1 -> {
+                            GuidedStepHeader(
+                                title = "Why did one of these matter?",
+                                coaching = "Pick whichever item moves you most and unpack it. Why did it land? Who or what made it possible? Going deeper on one is more powerful than skimming three."
+                            )
+                            OutlinedTextField(
+                                value = uiState.whyItMattered,
+                                onValueChange = viewModel::onWhyItMatteredChange,
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                placeholder = { Text("Why this one stuck with you...") }
+                            )
+                            OutlinedTextField(
+                                value = uiState.whoHelped,
+                                onValueChange = viewModel::onWhoHelpedChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Who or what helped make it happen?") }
+                            )
+                        }
+                        else -> {
+                            GuidedStepHeader(
+                                title = "How do you feel right now?",
+                                coaching = "Gratitude usually shifts mood by a notch or two. Take a breath, then check in. Where are you on the scale right now?"
+                            )
+                            MoodSelector(
+                                selectedMood = uiState.mood,
+                                onMoodSelected = viewModel::onMoodChange
+                            )
+                        }
                     }
-                    1 -> {
-                        Text("Why did one of these matter?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = uiState.whyItMattered,
-                            onValueChange = viewModel::onWhyItMatteredChange,
-                            modifier = Modifier.fillMaxWidth().height(140.dp),
-                            placeholder = { Text("Describe why it mattered...") }
-                        )
-                        OutlinedTextField(
-                            value = uiState.whoHelped,
-                            onValueChange = viewModel::onWhoHelpedChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Who or what helped?") }
-                        )
-                    }
-                    else -> {
-                        Text("How do you feel right now?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        MoodSelector(
-                            selectedMood = uiState.mood,
-                            onMoodSelected = viewModel::onMoodChange
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(onClick = { if (currentStep > 0) currentStep -= 1 }, enabled = currentStep > 0) {
-                        Text("Back")
-                    }
+                HorizontalDivider()
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (currentStep > 0) {
+                        OutlinedButton(
+                            onClick = { currentStep -= 1 },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Back")
+                        }
+                    }
+                    val anyItemFilled = uiState.itemOne.isNotBlank() ||
+                        uiState.itemTwo.isNotBlank() ||
+                        uiState.itemThree.isNotBlank()
                     if (currentStep < steps.lastIndex) {
-                        val canProceed = if (currentStep == 0) {
-                            uiState.itemOne.isNotBlank() || uiState.itemTwo.isNotBlank() || uiState.itemThree.isNotBlank()
-                        } else true
-                        Button(onClick = { currentStep += 1 }, enabled = canProceed) {
+                        val canProceed = if (currentStep == 0) anyItemFilled else true
+                        Button(
+                            onClick = { currentStep += 1 },
+                            modifier = Modifier.weight(1f),
+                            enabled = canProceed
+                        ) {
                             Text("Next")
                         }
                     } else {
-                        val canSave = uiState.itemOne.isNotBlank() || uiState.itemTwo.isNotBlank() || uiState.itemThree.isNotBlank()
-                        Button(onClick = { viewModel.saveEntry() }, enabled = canSave && !uiState.isSaving) {
+                        Button(
+                            onClick = { viewModel.saveEntry() },
+                            modifier = Modifier.weight(1f),
+                            enabled = anyItemFilled && !uiState.isSaving
+                        ) {
                             if (uiState.isSaving) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.height(20.dp),

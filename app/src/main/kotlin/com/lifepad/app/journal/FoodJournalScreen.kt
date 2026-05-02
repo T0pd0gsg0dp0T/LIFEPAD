@@ -1,5 +1,6 @@
 package com.lifepad.app.journal
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +22,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -47,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lifepad.app.components.GuidedStepHeader
 import com.lifepad.app.components.MoodSelector
 import com.lifepad.app.components.StepperIndicator
 import com.lifepad.app.components.TimePickerDialog
@@ -66,6 +70,10 @@ fun FoodJournalScreen(
     val scrollState = rememberScrollState()
     val steps = listOf("Meal", "Hunger", "Mood", "Reflection")
 
+    BackHandler {
+        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+    }
+
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) onNavigateBack()
     }
@@ -84,7 +92,9 @@ fun FoodJournalScreen(
             TopAppBar(
                 title = { Text("Food Journal") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -92,7 +102,6 @@ fun FoodJournalScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        // Date picker dialog
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = uiState.entryDate
@@ -136,9 +145,6 @@ fun FoodJournalScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(scrollState)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -158,69 +164,112 @@ fun FoodJournalScreen(
                     }
                 }
 
-                StepperIndicator(steps = steps, currentStep = currentStep)
+                StepperIndicator(
+                    steps = steps,
+                    currentStep = currentStep,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
 
-                when (currentStep) {
-                    0 -> {
-                        Text("What did you eat?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = uiState.meal,
-                            onValueChange = viewModel::onMealChange,
-                            modifier = Modifier.fillMaxWidth().height(120.dp),
-                            placeholder = { Text("Meal or snacks") }
-                        )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    when (currentStep) {
+                        0 -> {
+                            GuidedStepHeader(
+                                title = "What did you eat?",
+                                coaching = "No judgement here — just notice. Write what you ate or drank, roughly when, and how much. The pattern matters more than any single meal."
+                            )
+                            OutlinedTextField(
+                                value = uiState.meal,
+                                onValueChange = viewModel::onMealChange,
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                placeholder = { Text("e.g., Two slices of toast and coffee around 9am.") }
+                            )
+                        }
+                        1 -> {
+                            GuidedStepHeader(
+                                title = "How hungry were you, before and after?",
+                                coaching = "Tuning into hunger and fullness rebuilds the link between body and food. 0 = empty/starving, 100 = uncomfortably full."
+                            )
+                            RatingSlider(
+                                label = "Hunger before",
+                                value = uiState.hungerBefore,
+                                onValueChange = viewModel::onHungerBeforeChange
+                            )
+                            RatingSlider(
+                                label = "Hunger after",
+                                value = uiState.hungerAfter,
+                                onValueChange = viewModel::onHungerAfterChange
+                            )
+                        }
+                        2 -> {
+                            GuidedStepHeader(
+                                title = "Mood before and after",
+                                coaching = "Eating shifts mood, and mood shifts what we eat. Capture both ends so you can spot what genuinely helps you feel better."
+                            )
+                            Text("Mood before eating", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            MoodSelector(
+                                selectedMood = uiState.moodBefore,
+                                onMoodSelected = viewModel::onMoodBeforeChange
+                            )
+                            Text("Mood after eating", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            MoodSelector(
+                                selectedMood = uiState.moodAfter,
+                                onMoodSelected = viewModel::onMoodAfterChange
+                            )
+                        }
+                        else -> {
+                            GuidedStepHeader(
+                                title = "Anything you want to remember?",
+                                coaching = "Optional. Were you actually hungry, or eating from stress, boredom, or routine? Did the meal satisfy you? No right answer — just notice."
+                            )
+                            OutlinedTextField(
+                                value = uiState.reflection,
+                                onValueChange = viewModel::onReflectionChange,
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                placeholder = { Text("Patterns, triggers, or anything you noticed...") }
+                            )
+                        }
                     }
-                    1 -> {
-                        RatingSlider(
-                            label = "Hunger before",
-                            value = uiState.hungerBefore,
-                            onValueChange = viewModel::onHungerBeforeChange
-                        )
-                        RatingSlider(
-                            label = "Hunger after",
-                            value = uiState.hungerAfter,
-                            onValueChange = viewModel::onHungerAfterChange
-                        )
-                    }
-                    2 -> {
-                        Text("Mood before eating", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        MoodSelector(
-                            selectedMood = uiState.moodBefore,
-                            onMoodSelected = viewModel::onMoodBeforeChange
-                        )
-                        Text("Mood after eating", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        MoodSelector(
-                            selectedMood = uiState.moodAfter,
-                            onMoodSelected = viewModel::onMoodAfterChange
-                        )
-                    }
-                    else -> {
-                        Text("Anything you noticed?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = uiState.reflection,
-                            onValueChange = viewModel::onReflectionChange,
-                            modifier = Modifier.fillMaxWidth().height(140.dp),
-                            placeholder = { Text("Reflections or patterns") }
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(onClick = { if (currentStep > 0) currentStep -= 1 }, enabled = currentStep > 0) {
-                        Text("Back")
-                    }
+                HorizontalDivider()
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (currentStep > 0) {
+                        OutlinedButton(
+                            onClick = { currentStep -= 1 },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Back")
+                        }
+                    }
                     if (currentStep < steps.lastIndex) {
                         val canProceed = if (currentStep == 0) uiState.meal.isNotBlank() else true
-                        Button(onClick = { currentStep += 1 }, enabled = canProceed) {
+                        Button(
+                            onClick = { currentStep += 1 },
+                            modifier = Modifier.weight(1f),
+                            enabled = canProceed
+                        ) {
                             Text("Next")
                         }
                     } else {
-                        Button(onClick = { viewModel.saveEntry() }, enabled = uiState.meal.isNotBlank() && !uiState.isSaving) {
+                        Button(
+                            onClick = { viewModel.saveEntry() },
+                            modifier = Modifier.weight(1f),
+                            enabled = uiState.meal.isNotBlank() && !uiState.isSaving
+                        ) {
                             if (uiState.isSaving) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.height(20.dp),

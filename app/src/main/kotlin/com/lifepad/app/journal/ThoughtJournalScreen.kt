@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lifepad.app.components.EmotionSelector
+import com.lifepad.app.components.GuidedStepHeader
 import com.lifepad.app.components.MoodSelector
 import com.lifepad.app.components.StepperIndicator
 import com.lifepad.app.components.ThinkingTrapSelector
@@ -258,15 +259,9 @@ private fun SituationStep(
     uiState: ThoughtJournalUiState,
     viewModel: ThoughtJournalViewModel
 ) {
-    Text(
-        text = "What happened?",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold
-    )
-    Text(
-        text = "Describe the situation that triggered your thoughts and feelings.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+    GuidedStepHeader(
+        title = "Get started",
+        coaching = "First, take a moment to slow down and reflect on your situation. Provide a brief description below to set the context for your journal entry.\n\nNeed help? Try: What was the situation? Where were you? Who was with you? What were you doing? When did this happen?"
     )
     OutlinedTextField(
         value = uiState.situation,
@@ -274,7 +269,7 @@ private fun SituationStep(
         modifier = Modifier
             .fillMaxWidth()
             .height(200.dp),
-        placeholder = { Text("e.g., I was at a meeting and my boss criticized my work in front of everyone...") }
+        placeholder = { Text("Describe your situation") }
     )
 }
 
@@ -283,15 +278,9 @@ private fun EmotionsBeforeStep(
     uiState: ThoughtJournalUiState,
     viewModel: ThoughtJournalViewModel
 ) {
-    Text(
-        text = "How did you feel?",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold
-    )
-    Text(
-        text = "Rate your overall mood and select the emotions you experienced.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+    GuidedStepHeader(
+        title = "Feelings",
+        coaching = "Select the feelings and sensations you've been experiencing. Our thoughts, feelings, and behaviors are deeply interconnected — slowing down to notice each one is the first step in catching what's going on."
     )
 
     MoodSelector(
@@ -304,7 +293,7 @@ private fun EmotionsBeforeStep(
     EmotionSelector(
         emotions = uiState.emotionsBefore,
         onEmotionsChange = { viewModel.onEmotionsBeforeChange(it) },
-        label = "Specific Emotions (tap to select, adjust intensity)"
+        label = "Add your feelings and sensations"
     )
 }
 
@@ -313,15 +302,9 @@ private fun AutomaticThoughtsStep(
     uiState: ThoughtJournalUiState,
     viewModel: ThoughtJournalViewModel
 ) {
-    Text(
-        text = "What went through your mind?",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold
-    )
-    Text(
-        text = "Write down the automatic thoughts that came to mind in that situation.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+    GuidedStepHeader(
+        title = "Catch your thoughts",
+        coaching = "Write down what's been going through your mind. Automatic thoughts often sound like facts but are really interpretations.\n\nFor example, *I have nothing interesting to say.*"
     )
     OutlinedTextField(
         value = uiState.automaticThoughts,
@@ -329,7 +312,7 @@ private fun AutomaticThoughtsStep(
         modifier = Modifier
             .fillMaxWidth()
             .height(160.dp),
-        placeholder = { Text("e.g., Everyone thinks I'm incompetent. I'll never be good enough...") }
+        placeholder = { Text("Add your thoughts") }
     )
 
     Spacer(modifier = Modifier.height(8.dp))
@@ -362,15 +345,9 @@ private fun EvidenceStep(
     uiState: ThoughtJournalUiState,
     viewModel: ThoughtJournalViewModel
 ) {
-    Text(
-        text = "Examine the evidence",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold
-    )
-    Text(
-        text = "Look at the facts objectively, not your feelings about them.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+    GuidedStepHeader(
+        title = "Check it",
+        coaching = "Now, take a step back and examine your thoughts. How accurate are they? And are there alternative ways to think about things?\n\nWhat evidence is there for and against the thoughts? Would it hold up in a court of law? If a close friend came to you with these thoughts, what might you say to them?"
     )
 
     OutlinedTextField(
@@ -379,8 +356,8 @@ private fun EvidenceStep(
         modifier = Modifier
             .fillMaxWidth()
             .height(140.dp),
-        label = { Text("Evidence supporting this thought") },
-        placeholder = { Text("What facts support this automatic thought?") }
+        label = { Text("Evidence for the thought") },
+        placeholder = { Text("What facts support it?") }
     )
 
     OutlinedTextField(
@@ -389,8 +366,8 @@ private fun EvidenceStep(
         modifier = Modifier
             .fillMaxWidth()
             .height(140.dp),
-        label = { Text("Evidence against this thought") },
-        placeholder = { Text("What facts contradict this thought?") }
+        label = { Text("Evidence against the thought") },
+        placeholder = { Text("What facts might you be leaving out?") }
     )
 }
 
@@ -399,15 +376,9 @@ private fun ReframeStep(
     uiState: ThoughtJournalUiState,
     viewModel: ThoughtJournalViewModel
 ) {
-    Text(
-        text = "Reframe your thinking",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold
-    )
-    Text(
-        text = "Based on the evidence, write a more balanced alternative thought.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+    GuidedStepHeader(
+        title = "Change it",
+        coaching = "The goal isn't to invalidate your experience or to put a positive spin on everything. Rather, weigh the evidence and reach a balanced perspective.\n\nThinking traps are common patterns of inaccurate thinking. Tag any below that applied — labeling them helps you catch them next time."
     )
 
     OutlinedTextField(
@@ -416,7 +387,7 @@ private fun ReframeStep(
         modifier = Modifier
             .fillMaxWidth()
             .height(140.dp),
-        placeholder = { Text("e.g., One criticism doesn't mean I'm incompetent. I've done good work before...") }
+        placeholder = { Text("Examine your thoughts") }
     )
 
     Spacer(modifier = Modifier.height(8.dp))
@@ -456,15 +427,9 @@ private fun ReRateStep(
     uiState: ThoughtJournalUiState,
     viewModel: ThoughtJournalViewModel
 ) {
-    Text(
-        text = "How do you feel now?",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold
-    )
-    Text(
-        text = "After examining the evidence and reframing, re-rate your emotions.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+    GuidedStepHeader(
+        title = "Feelings after journaling",
+        coaching = "Select the feelings and sensations you are experiencing now. Even a small shift counts — the gap from before to now is the work paying off."
     )
 
     MoodSelector(
@@ -477,7 +442,7 @@ private fun ReRateStep(
     EmotionSelector(
         emotions = uiState.emotionsAfter,
         onEmotionsChange = { viewModel.onEmotionsAfterChange(it) },
-        label = "Re-rate your emotions"
+        label = "Add your feelings and sensations"
     )
 
     // Before / After comparison

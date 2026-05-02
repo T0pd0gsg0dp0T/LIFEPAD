@@ -1,5 +1,6 @@
 package com.lifepad.app.journal
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +23,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -43,10 +46,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lifepad.app.components.GuidedStepHeader
 import com.lifepad.app.components.MoodSelector
 import com.lifepad.app.components.StepperIndicator
 import com.lifepad.app.components.TimePickerDialog
@@ -67,6 +70,10 @@ fun ReflectionJournalScreen(
     val scrollState = rememberScrollState()
     val steps = listOf("Intention", "Review", "Mood")
 
+    BackHandler {
+        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+    }
+
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) onNavigateBack()
     }
@@ -85,7 +92,9 @@ fun ReflectionJournalScreen(
             TopAppBar(
                 title = { Text("Daily Reflection") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -93,7 +102,6 @@ fun ReflectionJournalScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        // Date picker dialog
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = uiState.entryDate
@@ -137,9 +145,6 @@ fun ReflectionJournalScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(scrollState)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -159,64 +164,105 @@ fun ReflectionJournalScreen(
                     }
                 }
 
-                StepperIndicator(steps = steps, currentStep = currentStep)
+                StepperIndicator(
+                    steps = steps,
+                    currentStep = currentStep,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
 
-                when (currentStep) {
-                    0 -> {
-                        Text("Set an intention for today", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = uiState.intention,
-                            onValueChange = viewModel::onIntentionChange,
-                            modifier = Modifier.fillMaxWidth().height(120.dp),
-                            placeholder = { Text("What do you want to focus on?") }
-                        )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    when (currentStep) {
+                        0 -> {
+                            GuidedStepHeader(
+                                title = "What's your intention?",
+                                coaching = "An intention is a compass, not a checklist. Pick one quality or focus you want to bring to today (or tomorrow). Keep it short — one sentence is plenty."
+                            )
+                            OutlinedTextField(
+                                value = uiState.intention,
+                                onValueChange = viewModel::onIntentionChange,
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                placeholder = { Text("e.g., Stay present in conversations today.") }
+                            )
+                        }
+                        1 -> {
+                            GuidedStepHeader(
+                                title = "Look back at your day",
+                                coaching = "Reflection turns experience into learning. Skim today and notice — what worked, what was hard, and one thing you'd do differently."
+                            )
+                            OutlinedTextField(
+                                value = uiState.highlights,
+                                onValueChange = viewModel::onHighlightsChange,
+                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                label = { Text("What went well?") },
+                                placeholder = { Text("Wins, moments, kindnesses — large or small.") }
+                            )
+                            OutlinedTextField(
+                                value = uiState.challenges,
+                                onValueChange = viewModel::onChallengesChange,
+                                modifier = Modifier.fillMaxWidth().height(120.dp),
+                                label = { Text("What was hard?") },
+                                placeholder = { Text("Stuck moments, frustrations, things that drained you.") }
+                            )
+                            OutlinedTextField(
+                                value = uiState.improveTomorrow,
+                                onValueChange = viewModel::onImproveTomorrowChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("One thing to try tomorrow") },
+                                placeholder = { Text("Tiny adjustments compound — keep it concrete.") }
+                            )
+                        }
+                        else -> {
+                            GuidedStepHeader(
+                                title = "How do you feel after reflecting?",
+                                coaching = "Just reviewing the day shifts something. Take a breath. Where are you on the mood scale right now?"
+                            )
+                            MoodSelector(
+                                selectedMood = uiState.mood,
+                                onMoodSelected = viewModel::onMoodChange
+                            )
+                        }
                     }
-                    1 -> {
-                        Text("Review your day", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = uiState.highlights,
-                            onValueChange = viewModel::onHighlightsChange,
-                            modifier = Modifier.fillMaxWidth().height(120.dp),
-                            placeholder = { Text("What went well?") }
-                        )
-                        OutlinedTextField(
-                            value = uiState.challenges,
-                            onValueChange = viewModel::onChallengesChange,
-                            modifier = Modifier.fillMaxWidth().height(120.dp),
-                            placeholder = { Text("What was challenging?") }
-                        )
-                        OutlinedTextField(
-                            value = uiState.improveTomorrow,
-                            onValueChange = viewModel::onImproveTomorrowChange,
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("One thing to improve tomorrow") }
-                        )
-                    }
-                    else -> {
-                        Text("How do you feel now?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        MoodSelector(
-                            selectedMood = uiState.mood,
-                            onMoodSelected = viewModel::onMoodChange
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(onClick = { if (currentStep > 0) currentStep -= 1 }, enabled = currentStep > 0) {
-                        Text("Back")
-                    }
+                HorizontalDivider()
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (currentStep > 0) {
+                        OutlinedButton(
+                            onClick = { currentStep -= 1 },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Back")
+                        }
+                    }
                     if (currentStep < steps.lastIndex) {
                         val canProceed = if (currentStep == 0) uiState.intention.isNotBlank() else true
-                        Button(onClick = { currentStep += 1 }, enabled = canProceed) {
+                        Button(
+                            onClick = { currentStep += 1 },
+                            modifier = Modifier.weight(1f),
+                            enabled = canProceed
+                        ) {
                             Text("Next")
                         }
                     } else {
-                        Button(onClick = { viewModel.saveEntry() }, enabled = uiState.intention.isNotBlank() && !uiState.isSaving) {
+                        Button(
+                            onClick = { viewModel.saveEntry() },
+                            modifier = Modifier.weight(1f),
+                            enabled = uiState.intention.isNotBlank() && !uiState.isSaving
+                        ) {
                             if (uiState.isSaving) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.height(20.dp),

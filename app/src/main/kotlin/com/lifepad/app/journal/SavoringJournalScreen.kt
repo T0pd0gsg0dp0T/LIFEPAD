@@ -1,5 +1,6 @@
 package com.lifepad.app.journal
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +22,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -43,10 +46,10 @@ import androidx.compose.runtime.setValue
 import com.lifepad.app.components.TimePickerDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lifepad.app.components.GuidedStepHeader
 import com.lifepad.app.components.MoodSelector
 import com.lifepad.app.components.StepperIndicator
 
@@ -62,7 +65,11 @@ fun SavoringJournalScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
-    val steps = listOf("Moment", "Senses", "Savor", "Mood")
+    val steps = listOf("Pick a prompt", "Feelings", "Senses", "Savor")
+
+    BackHandler {
+        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+    }
 
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) onNavigateBack()
@@ -82,7 +89,9 @@ fun SavoringJournalScreen(
             TopAppBar(
                 title = { Text("Savoring") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        if (currentStep > 0) currentStep -= 1 else onNavigateBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -90,7 +99,6 @@ fun SavoringJournalScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        // Date picker dialog
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = uiState.entryDate
@@ -134,9 +142,6 @@ fun SavoringJournalScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .verticalScroll(scrollState)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -156,77 +161,102 @@ fun SavoringJournalScreen(
                     }
                 }
 
-                StepperIndicator(steps = steps, currentStep = currentStep)
+                StepperIndicator(
+                    steps = steps,
+                    currentStep = currentStep,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
 
-                when (currentStep) {
-                    0 -> {
-                        Text(
-                            "Describe the moment you want to savor",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        OutlinedTextField(
-                            value = uiState.experience,
-                            onValueChange = viewModel::onExperienceChange,
-                            modifier = Modifier.fillMaxWidth().height(140.dp),
-                            placeholder = { Text("What happened?") }
-                        )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    when (currentStep) {
+                        0 -> {
+                            GuidedStepHeader(
+                                title = "Pick a prompt",
+                                coaching = "Pick a positive moment from today and slow down on it. Try one of these:\n\n• In the past day, what made you smile?\n• What's a recent event that moved you?\n• What's something you've been underappreciating?\n• Describe a moment, however brief, when you felt calm or at ease."
+                            )
+                            OutlinedTextField(
+                                value = uiState.experience,
+                                onValueChange = viewModel::onExperienceChange,
+                                modifier = Modifier.fillMaxWidth().height(160.dp),
+                                placeholder = { Text("Describe the moment") }
+                            )
+                        }
+                        1 -> {
+                            GuidedStepHeader(
+                                title = "Feelings",
+                                coaching = "Select the feelings and sensations the moment brought up. Naming them strengthens the memory."
+                            )
+                            MoodSelector(
+                                selectedMood = uiState.mood,
+                                onMoodSelected = viewModel::onMoodChange
+                            )
+                        }
+                        2 -> {
+                            GuidedStepHeader(
+                                title = "Senses",
+                                coaching = "Replaying sensory detail deepens the memory. Close your eyes for a second. What did you see, hear, smell, taste, or feel on your skin?"
+                            )
+                            OutlinedTextField(
+                                value = uiState.sensoryDetails,
+                                onValueChange = viewModel::onSensoryDetailsChange,
+                                modifier = Modifier.fillMaxWidth().height(160.dp),
+                                placeholder = { Text("Sights, sounds, smells, textures, tastes...") }
+                            )
+                        }
+                        else -> {
+                            GuidedStepHeader(
+                                title = "Take a moment to savor and linger on your feelings",
+                                coaching = "By strengthening your memory of these positive experiences, you're able to build happiness over time.\n\nHow will you carry this forward — by sharing it, taking a photo, telling someone, or revisiting it later?"
+                            )
+                            OutlinedTextField(
+                                value = uiState.savoring,
+                                onValueChange = viewModel::onSavoringChange,
+                                modifier = Modifier.fillMaxWidth().height(160.dp),
+                                placeholder = { Text("e.g., I'll text Mom about it tonight.") }
+                            )
+                        }
                     }
-                    1 -> {
-                        Text(
-                            "What did you notice with your senses?",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        OutlinedTextField(
-                            value = uiState.sensoryDetails,
-                            onValueChange = viewModel::onSensoryDetailsChange,
-                            modifier = Modifier.fillMaxWidth().height(140.dp),
-                            placeholder = { Text("Sounds, sights, smells, textures...") }
-                        )
-                    }
-                    2 -> {
-                        Text(
-                            "How will you savor this moment?",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        OutlinedTextField(
-                            value = uiState.savoring,
-                            onValueChange = viewModel::onSavoringChange,
-                            modifier = Modifier.fillMaxWidth().height(140.dp),
-                            placeholder = { Text("What will you do to keep it with you?") }
-                        )
-                    }
-                    else -> {
-                        Text(
-                            "How do you feel right now?",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        MoodSelector(
-                            selectedMood = uiState.mood,
-                            onMoodSelected = viewModel::onMoodChange
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(onClick = { if (currentStep > 0) currentStep -= 1 }, enabled = currentStep > 0) {
-                        Text("Back")
-                    }
+                HorizontalDivider()
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (currentStep > 0) {
+                        OutlinedButton(
+                            onClick = { currentStep -= 1 },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Back")
+                        }
+                    }
                     if (currentStep < steps.lastIndex) {
                         val canProceed = if (currentStep == 0) uiState.experience.isNotBlank() else true
-                        Button(onClick = { currentStep += 1 }, enabled = canProceed) {
+                        Button(
+                            onClick = { currentStep += 1 },
+                            modifier = Modifier.weight(1f),
+                            enabled = canProceed
+                        ) {
                             Text("Next")
                         }
                     } else {
-                        Button(onClick = { viewModel.saveEntry() }, enabled = uiState.experience.isNotBlank() && !uiState.isSaving) {
+                        Button(
+                            onClick = { viewModel.saveEntry() },
+                            modifier = Modifier.weight(1f),
+                            enabled = uiState.experience.isNotBlank() && !uiState.isSaving
+                        ) {
                             if (uiState.isSaving) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.height(20.dp),
