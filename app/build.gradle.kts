@@ -28,8 +28,8 @@ android {
         applicationId = "com.lifepad.app"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "com.lifepad.app.LifepadTestRunner"
 
@@ -91,6 +91,10 @@ android {
             excludes += "/META-INF/LICENSE.md"
             excludes += "/META-INF/LICENSE-notice.md"
         }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
     }
 }
 
