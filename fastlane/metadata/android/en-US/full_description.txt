@@ -1,0 +1,14 @@
+LIFEPAD is a privacy-first, all-in-one Android app that unifies knowledge
+management, CBT-enhanced journaling, and personal finance tracking — a
+spyware-free alternative to multiple productivity apps. Everything stays
+on your device.
+
+Features:
+* Notepad: Markdown notes, wikilinks, checklists, folders, full-text search
+* Journal: mood tracking, template entries (gratitude, reflection,
+savoring, check-in, food journal), streaks and statistics
+* CBT tools: thought-journal restructuring wizard, exposure journal with
+SUDS ratings, 12 thinking traps, GAD-7 and PHQ-9 assessments with trends
+* Finance: transaction tracking, budgets, custom categories, accounts
+* Unified graph view connecting notes, entries, and transactions
+* Export to JSON, CSV, or Markdown
